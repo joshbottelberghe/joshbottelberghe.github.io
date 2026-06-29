@@ -88,3 +88,37 @@ footer.site {
   color: var(--muted);
   font-size: 0.9rem;
 }
+
+/* --- link row --- */
+.links { display: flex; flex-wrap: wrap; gap: 0.6rem 1.4rem; margin: 1.5rem 0 0; padding: 0; list-style: none; }
+.links a { color: var(--accent); font-size: 0.97rem; }
+.links .muted { color: var(--muted); }
+
+/* --- featured blocks on home --- */
+.featured { display: grid; gap: 1.25rem; margin-top: 1rem; }
+.card {
+  display: block; background: var(--panel); border: 1px solid var(--rule);
+  border-radius: 10px; padding: 1.1rem 1.25rem; color: inherit;
+}
+a.card:hover { border-color: var(--accent); text-decoration: none; }
+.card .kicker { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.card .title { font-size: 1.08rem; font-weight: 600; margin: 0.25rem 0 0.4rem; color: var(--fg); }
+.card .summary { color: var(--muted); font-size: 0.95rem; margin: 0; }
+
+/* --- project list --- */
+.projects-list { list-style: none; padding: 0; }
+.projects-list li { padding: 1.2rem 0; border-bottom: 1px solid var(--rule); }
+.projects-list li:last-child { border-bottom: none; }
+.projects-list .title { font-size: 1.1rem; font-weight: 600; }
+.projects-list .tags { color: var(--muted); font-size: 0.85rem; margin-left: 0.5rem; font-weight: 400; }
+.projects-list .summary { color: var(--muted); font-size: 0.96rem; margin: 0.3rem 0 0.4rem; }
+.projects-list .repo { font-size: 0.9rem; }
+
+/* --- experience / about --- */
+.entry { margin: 0 0 1.4rem; }
+.entry .role { font-weight: 600; }
+.entry .where { color: var(--muted); }
+.entry .when { color: var(--muted); font-size: 0.88rem; }
+.entry p { margin: 0.3rem 0 0; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 2rem; }
+@media (max-width: 560px) { .cols { grid-template-columns: 1fr; } }
