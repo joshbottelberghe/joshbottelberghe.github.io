@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recompute Avoidance: Scaling a Route-Visualization Pipeline ~3x · Josh Bottelberghe</title>
+  <meta name="description" content="Why a ~3x throughput win came from doing less work, not faster work: segment-level cache compute, change-hinting, and decoupled export.">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <span class="brand"><a href="/" style="color:inherit">Josh Bottelberghe</a></span>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/writing/">Writing</a>
+        <a href="/projects/">Projects</a>
+        <a href="/about.html">About</a>
+        <a href="/resume.html">Résumé</a>
+        <a href="https://github.com/joshbottelberghe">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <p style="margin-bottom:0.5rem"><a href="/writing/">← Writing</a></p>
+      <h1>Recompute Avoidance: Scaling a Route-Visualization Pipeline ~3x</h1>
+      <p class="tagline">2026 · systems design, scaling</p>
+
+      <blockquote>One of a series of design writeups reconstructed from memory: the structures and
+      trade-offs of systems I built, not internal documentation. Specifics are generalized; the
+      engineering ideas are the point.</blockquote>
+
+      <p>I spent a chunk of my time at a multi-cloud networking startup owning the
+      <strong>route-visualization pipeline</strong>, the system that takes the live routing state off a
+      fleet of network nodes and turns it into something a customer can actually look at and reason
+      about: which prefixes are reachable, via which path, and why. At scale that means hundreds of
+      tenants, tens of thousands of routes each, and a freshness target measured in single-digit
+      minutes. The interesting work wasn't the visualization. It was keeping the pipeline that
+      <em>feeds</em> it from falling over as the customer base grew.</p>
+
+      <p>This is the story of a roughly <strong>3x throughput improvement</strong>, and why the win came
+      from doing <em>less</em> work, not from doing the same work faster. The approach was novel enough
+      that we filed a patent on it.</p>
+
+      <h2>The shape of the problem</h2>
+
+      <p>The pipeline is conceptually simple: routes land from the nodes into durable object storage, a
+      compute layer reads them, transforms them into the visualized model, and serves that through a
+      cache to customer-facing APIs.</p>
+
+      <pre><code>nodes → object store → cache-compute layer → customer APIs</code></pre>
+
+      <p>The naive version recomputes the world. A tenant's routing state changes, a handful of prefixes
+      move, and the pipeline rebuilds that tenant's entire visualized model from scratch: re-reads the
+      full route set, re-derives every path, re-serializes everything into the cache. That's fine for ten
+      tenants. At hundreds, with churn happening constantly, you're burning CPU recomputing enormous
+      models in response to tiny deltas, and the freshness SLA starts slipping because the compute layer
+      can't keep up with the change rate.</p>
+
+      <p>The instinct, mine included early on, is to make the recompute faster: profile the hot path,
+      tighten the serialization, throw more cores at it. That buys you a constant factor and then you're
+      back in the same place one growth cycle later, because <strong>the cost is structurally tied to
+      total state, not to how much actually changed.</strong></p>
+
+      <h2>The reframe: avoid the recompute</h2>
+
+      <p>The lever that actually mattered was changing <em>when</em> compute happens at all. Three pieces,
+      each a variation on the same idea: spend work in proportion to the <em>change</em>, not the
+      <em>size of the world</em>.</p>
+
+      <p><strong>1. Segment-level cache compute.</strong> Instead of treating a tenant's model as one
+      monolithic artifact, partition it along a natural boundary in the domain (here, routing segments).
+      A change touches one segment; only that segment's slice of the model gets recomputed and rewritten.
+      The blast radius of an update drops from "the whole tenant" to "the part that moved." This is the
+      single biggest win, and it's almost entirely a <em>data-modeling</em> decision, not a performance
+      hack.</p>
+
+      <p><strong>2. Route hinting.</strong> The pipeline doesn't have to rediscover what changed by
+      diffing large states; the layer producing the routes already knows. Carry that signal forward as a
+      hint, so the compute layer can skip straight to the affected work instead of scanning to find it.
+      Cheap to produce, expensive to live without: it's the difference between "tell me what changed" and
+      "figure out what changed."</p>
+
+      <p><strong>3. A file-based export worker pool.</strong> Export, serializing the computed model out
+      to where it's served, was its own bottleneck and didn't need to share fate with compute. Decoupling
+      it into a pool of workers writing file-based artifacts let export scale horizontally and absorb
+      bursts without back-pressuring the compute stage. Producer/consumer separation, applied to the part
+      of the pipeline that was quietly serializing everything behind a lock.</p>
+
+      <h2>Why it held up</h2>
+
+      <p>Together these took the pipeline from "recompute the world on every change" to "do work
+      proportional to the delta," which is what let it carry several times the load on the same footprint
+      while holding the freshness target: hundreds of tenants, no major outages in the domain over the
+      period I owned it.</p>
+
+      <p>The part I find most worth repeating is the <strong>diagnostic</strong> one. Much later, when I
+      built a production-replay harness to soak-test changes against real recorded traffic, the data
+      confirmed the original bet: the dominant cost was <em>cold recompute</em>, and the highest-value
+      remaining levers were all forms of recompute <em>avoidance</em> (content hashing to gate redundant
+      work, dependency tracking so a change invalidates only what truly depends on it), not faster access
+      to the inputs. The first optimization and the measurement years later were the same idea seen
+      twice.</p>
+
+      <h2>What I'd pull out of it</h2>
+
+      <ul>
+        <li><strong>At scale, the question is rarely "how do I do this faster," it's "how do I not do
+        this."</strong> Constant-factor speedups are a treadmill when the cost scales with total state.
+        Restructuring so cost scales with change is what actually moves the curve.</li>
+        <li><strong>A lot of "performance work" is data-modeling work in disguise.</strong> The biggest
+        gain here was choosing the right partition boundary, which is a modeling decision, not a
+        profiling one.</li>
+        <li><strong>Propagate what the system already knows.</strong> The producer knew what changed;
+        making the consumer rediscover it was wasted effort. Hints beat diffs.</li>
+        <li><strong>Measure to confirm the shape, not just the number.</strong> The soak harness mattered
+        less for the throughput figure than for proving the <em>cost was where I thought it was</em>,
+        which is what tells you the next lever is avoidance, not acceleration.</li>
+      </ul>
+
+      <p class="tagline" style="margin-top:2rem">Reconstructed 2026. Happy to go deeper on any piece.</p>
+    </main>
+
+    <footer class="site">© Josh Bottelberghe</footer>
+  </div>
+</body>
+</html>
