@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Projects · Josh Bottelberghe</title>
-  <meta name="description" content="Selected projects and code · systems, networking, and distributed systems.">
+  <title>Work &amp; Projects · Josh Bottelberghe</title>
+  <meta name="description" content="Selected work: route visualization at scale, partial compute, a dampening system, traffic observability, Go tooling, and CI across a repo fleet.">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -13,41 +13,98 @@
       <span class="brand"><a href="/" style="color:inherit">Josh Bottelberghe</a></span>
       <nav>
         <a href="/">Home</a>
-        <a href="/writing/">Writing</a>
         <a href="/projects/">Projects</a>
-        <a href="/about.html">About</a>
+        <a href="/writing/">Writing</a>
+        <a href="/balance.html">Balance</a>
         <a href="/resume.html">Résumé</a>
         <a href="https://github.com/joshbottelberghe">GitHub</a>
       </nav>
     </header>
 
     <main>
-      <h1>Projects &amp; Code</h1>
-      <p class="tagline">A few things worth showing. Write-ups of production systems live under
-      <a href="/writing/">Writing</a>; the code below is open on GitHub.</p>
+      <h1>Work &amp; Projects</h1>
+      <p class="tagline">Most of what I've built lives inside one company, so this is more a description of
+      the work than links to code.</p>
+
+      <p>Working at a startup, you end up owning a lot. Over the last few years I've gone from shipping
+      single features to owning a core pipeline, a node-side subsystem, the team's route-intelligence
+      tooling, and the CI across every repo. A few of the bigger pieces:</p>
 
       <ul class="projects-list">
         <li>
-          <div class="title">Design Notes <span class="tags">· systems writing</span></div>
-          <p class="summary">Reconstructed structures and trade-offs from the production systems
-          I've built, starting with a ~3x scaling win on a route-visualization pipeline.</p>
-          <div class="repo"><a href="/writing/recompute-avoidance.html">Read the design note</a></div>
+          <div class="title">Route-visualization pipeline <span class="tags">· the system I own</span></div>
+          <p class="summary">It takes the live routing state off a fleet of nodes across three clouds,
+          stores it, computes a per-tenant view of what's reachable and how, and serves that to customer
+          APIs. Hundreds of tenants, tens of thousands of routes each, a freshness target under five
+          minutes, and no major outages while I've owned it. I've rebuilt the compute engine three times as
+          it grew.</p>
+          <div class="repo"><a href="/writing/recompute-avoidance.html">Design note: recompute avoidance</a></div>
         </li>
         <li>
-          <div class="title">network_projects <span class="tags">· C · systems · networking</span></div>
-          <p class="summary">An FTP-over-TCP implementation in C. Low-level sockets, protocol
-          handling, and the systems-programming lineage that leads to my current routing work.</p>
-          <div class="repo"><a href="https://github.com/joshbottelberghe/network_projects">github.com/joshbottelberghe/network_projects</a></div>
+          <div class="title">Partial compute <span class="tags">· route-viz scaling · patent</span></div>
+          <p class="summary">The rebuild I'm most proud of. Instead of recomputing a tenant's whole view on
+          every change, the engine now does work in proportion to what actually changed. On a single-segment
+          update that's a 99.6% cache hit and about 768 MB of memory instead of 12 GB, and roughly a 3x
+          scaling improvement overall. It's one of the two patents that came out of my route-viz work.</p>
+          <div class="repo"><a href="/writing/recompute-avoidance.html">Read how it works</a></div>
         </li>
         <li>
-          <div class="title">crypto <span class="tags">· Python · distributed systems</span></div>
-          <p class="summary">A from-scratch cryptocurrency and distributed blockchain: consensus,
-          a transaction model, and a peer worker pool. Design and core library are mine.</p>
-          <div class="repo"><a href="https://github.com/joshbottelberghe/crypto">github.com/joshbottelberghe/crypto</a></div>
+          <div class="title">Route dampening &amp; suppression <span class="tags">· node-side system</span></div>
+          <p class="summary">A system that puts a penalty and a half-life on routes that flap, so churn
+          doesn't overwhelm everything downstream. I wrote the algorithm, tuned the production parameters
+          from real traffic analysis, and added metrics for it. Later I caught a regression in it and got the
+          revert out the same day it showed up.</p>
+        </li>
+        <li>
+          <div class="title">Selector Stats <span class="tags">· traffic observability</span></div>
+          <p class="summary">I picked this up end to end when a teammate went on leave, in a part of the
+          system I hadn't worked in before. I did the design, the API, and the rollout, then root-caused a
+          wrong number down to a bad metric on another team's side and drove the fix through them. Shipped it
+          behind a flag and validated it live on call.</p>
+        </li>
+        <li>
+          <div class="title">route-detective <span class="tags">· Go · route-intelligence tooling</span></div>
+          <p class="summary">A Go server that makes our historical route archive queryable, including by an
+          AI agent. I rewrote it into a single self-contained binary with 18 tools and took it from v1 to
+          v2.1 in about two weeks. The team picked it up for on-call, upgrade checks, and tracking down route
+          churn.</p>
+        </li>
+        <li>
+          <div class="title">CI/CD &amp; security across the fleet <span class="tags">· 18 Go repos</span></div>
+          <p class="summary">I brought consistent CI, dependency and secret scanning, and merge gates to all
+          18 of our routing Go repos, plus a weekly health audit. Along the way I fixed real CVEs, an
+          access-control bug from a security probe, and cleaned a lot of hardcoded credentials out of the
+          fleet. The point was to raise the floor for everyone, not just my own changes.</p>
+        </li>
+        <li>
+          <div class="title">Working across teams <span class="tags">· the connective work</span></div>
+          <p class="summary">A lot of my work crosses team lines. Something breaks in one service but starts
+          in another, and I trace it and drive the fix through whoever owns it. Day to day that's working
+          with Product, QA, and the other routing teams to actually get things shipped, and mentoring a
+          junior engineer along the way.</p>
         </li>
       </ul>
 
-      <p style="color:var(--muted); font-size:0.95rem;">More on <a href="https://github.com/joshbottelberghe">GitHub</a>, including earlier coursework and experiments.</p>
+      <h2>Code</h2>
+      <ul class="projects-list">
+        <li>
+          <div class="title">crypto <span class="tags">· Python · distributed systems</span></div>
+          <p class="summary">A from-scratch cryptocurrency and blockchain: consensus, a transaction model,
+          full nodes, a miner, and wallets. The design and core library are mine. It's also the project I
+          walked through in interviews, and what got me into this line of work.</p>
+          <div class="repo"><a href="https://github.com/joshbottelberghe/crypto">github.com/joshbottelberghe/crypto</a></div>
+        </li>
+        <li>
+          <div class="title">network_projects <span class="tags">· C · systems · networking</span></div>
+          <p class="summary">An FTP-over-TCP implementation in C. Low-level sockets and protocol handling,
+          the systems-programming roots of the routing work I do now.</p>
+          <div class="repo"><a href="https://github.com/joshbottelberghe/network_projects">github.com/joshbottelberghe/network_projects</a></div>
+        </li>
+      </ul>
+
+      <p style="color:var(--muted); font-size:0.95rem;">Design notes on some of the systems above live under
+      <a href="/writing/">Writing</a>. More code, including older coursework, is on
+      <a href="https://github.com/joshbottelberghe">GitHub</a>.</p>
     </main>
 
     <footer class="site">© Josh Bottelberghe</footer>
