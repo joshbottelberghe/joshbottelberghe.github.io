@@ -91,8 +91,17 @@ footer.site {
 
 /* --- link row --- */
 .links { display: flex; flex-wrap: wrap; gap: 0.6rem 1.4rem; margin: 1.5rem 0 0; padding: 0; list-style: none; }
-.links a { color: var(--accent); font-size: 0.97rem; }
-.links .muted { color: var(--muted); }
+.links a { color: var(--accent); font-size: 0.97rem; display: inline-flex; align-items: center; }
+.links .muted { color: var(--muted); display: inline-flex; align-items: center; }
+.links svg { width: 1em; height: 1em; margin-right: 0.45em; fill: currentColor; flex: none; }
+
+/* --- images / figures --- */
+figure { margin: 1.75rem 0; }
+figure img { width: 100%; height: auto; display: block; border-radius: 10px; border: 1px solid var(--rule); }
+figure figcaption { color: var(--muted); font-size: 0.85rem; margin-top: 0.5rem; text-align: center; }
+.photo-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.75rem 0; }
+.photo-row figure { margin: 0; }
+@media (max-width: 560px) { .photo-row { grid-template-columns: 1fr; } }
 
 /* --- featured blocks on home --- */
 .featured { display: grid; gap: 1.25rem; margin-top: 1rem; }
