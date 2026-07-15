@@ -56,9 +56,9 @@
           <li>Wrote a soak-test harness in Go that replays real recorded production traffic against two
           branches and reports the difference in CPU, memory, and latency, so optimization calls are
           measured, not guessed. It shipped the wins and caught a regression before it merged.</li>
-          <li>Ran a release-targeted program to cut wasted recomputes: content-hashing, dependency
-          tracking, and a dirty-set that recomputes only the segments a change reaches. Removed ~90% of
-          redundant recomputes and the no-op recomputes that were blocking real updates.</li>
+          <li>Cut wasted recomputes with content-hashing, dependency tracking, and a dirty-set that
+          recomputes only the segments a change reaches, removing ~90% of redundant recomputes and the
+          no-op recomputes that were blocking real updates.</li>
           <li>Cut cache memory ~40% with a struct-encoding change; parallelized compute to take
           multi-minute updates to seconds; tracked down multi-hour S3 stalls (a hung ListObjects, clock
           skew) and fixed them with timeouts and pagination.</li>
