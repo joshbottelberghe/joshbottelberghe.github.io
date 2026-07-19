@@ -30,18 +30,39 @@ doc = f"""<!DOCTYPE html>
   .sheet {{ box-shadow: none; border-radius: 0; margin: 0; max-width: none; }}
 </style></head><body>{sheet}</body></html>"""
 
-PAGE_PX = 11 * 96  # US-Letter height in CSS px at 96dpi
+import subprocess, tempfile
+
+OUT = ROOT / "resume.pdf"
+
+
+def pages_at(page, scale, path):
+    """Render at the given scale and return the resulting page count."""
+    page.pdf(path=path, format="Letter", print_background=True,
+             prefer_css_page_size=True, scale=round(scale, 3))
+    info = subprocess.run(["pdfinfo", path], capture_output=True, text=True).stdout
+    return int(re.search(r"Pages:\s+(\d+)", info).group(1))
+
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
-    # Measure at true Letter width (8.5in = 816px) so height reflects the print layout.
     page = browser.new_page(viewport={"width": 816, "height": 1056})
     page.set_content(doc, wait_until="networkidle")
-    # Scale the whole sheet down just enough to fit one page.
-    height = page.evaluate("document.querySelector('.sheet').scrollHeight")
-    scale = min(1.0, (PAGE_PX / height) * 0.99)
-    page.pdf(path=str(ROOT / "resume.pdf"), format="Letter",
-             print_background=True, prefer_css_page_size=True, scale=round(scale, 3))
+
+    # Find the LARGEST scale that still fits one page (fills the page, no big white
+    # bar, text as large as possible). Page count is monotonic in scale.
+    tmp = tempfile.mktemp(suffix=".pdf")
+    lo, hi = 0.5, 1.0
+    if pages_at(page, hi, tmp) <= 1:
+        lo = hi
+    else:
+        for _ in range(7):
+            mid = (lo + hi) / 2
+            if pages_at(page, mid, tmp) <= 1:
+                lo = mid
+            else:
+                hi = mid
+    scale = round(lo, 3)
+    pages_at(page, scale, str(OUT))
     browser.close()
 
-print(f"wrote {ROOT / 'resume.pdf'}  (content {height}px, scale {round(scale,3)})")
+print(f"wrote {OUT}  (scale {scale})")
