@@ -14,7 +14,6 @@
       <nav>
         <a href="/">Home</a>
         <a href="/projects/">Projects</a>
-        <a href="/writing/">Writing</a>
         <a href="/balance.html">Balance</a>
         <a href="/resume.html">Résumé</a>
         <a href="https://github.com/joshbottelberghe">GitHub</a>
@@ -23,32 +22,25 @@
 
     <main>
       <h1>Josh Bottelberghe</h1>
-      <p class="tagline">Software engineer working on networking, distributed systems, and infrastructure at scale.</p>
+      <p class="tagline">Senior software engineer · networking, distributed systems, and infrastructure at scale.</p>
 
-      <p>Hi, I'm Josh. I'm a software engineer in Vancouver, Washington, and I live with my girlfriend and
-      our two cats. I've been into software since I was a kid, and I swam competitively the whole way
-      through, Division I at Notre Dame, until the software career took over from the swimming one. A lot of
-      how I work still comes from swimming. It taught me rigor, the kind where you show up every day and do
-      the work even when it's boring, and a real belief that steady effort compounds into improvement. It's
-      why I don't flinch at a daunting problem so much as ask how to make it approachable and start chipping
-      at it.
-      Outside of work I play guitar and drums and record at home, cook most nights on cast iron, and put too
-      many hours into Factorio.</p>
+      <p>I am Josh Bottelberghe, a Senior Software Engineer at <a href="https://www.alkira.com">Alkira,
+      Inc</a>. I work on the routing/control-plane team, delivering routing services to meet customer needs
+      for global network visibility and routing control (policy, segmentation, NAT, and more). While my work
+      in the fast-paced startup environment takes me across the stack with new, unique, and difficult problems
+      every day, my main focus has been my ownership of the route-visualization services, which give route
+      views at various levels within a customer's complicated, multi-cloud, segmented network. Across the
+      routing services suite I work closely with my team in code review, building on and contributing to each
+      other's designs. On a small team that means everyone has to stay aware of what's going on, to ensure
+      nothing slips and the customer's concerns are addressed promptly and accurately.</p>
 
-      <p>What keeps me interested is building software that actually makes a difference: something that
-      makes a person's work easier or solves a real problem for them. I like it simple and solid, and a lot
-      of the time getting there means cutting the work rather than doing it faster. I also care about who I'm
-      doing it with. The best work I've done has come out of egoless teams that genuinely want to learn and
-      get better, all pointed at some thorny problem everyone is trying to crack together.</p>
+      <p>When I'm not working, I spend my time swimming, playing guitar, cooking, and with my girlfriend and
+      our two cats. My time swimming and the fast-paced nature of a startup have taught me the necessity of
+      responsibility and the meaning of accountability, not just within engineering, but in life and to each
+      other.</p>
 
-      <p>The rest of this site is the actual work: what I've built, how I think about it, and a few writeups
-      that go deeper.</p>
-
-      <p>Most of my work is on network control-plane systems: the ones that take the live routing state off
-      a fleet of nodes and turn it into something operators and customers can actually reason about. Day to
-      day that's Go, BGP and FRR internals, and the usual at-scale stuff, Kubernetes, AWS, Redis, S3. The
-      part I like most is where networking meets distributed systems, keeping a pipeline fast and correct
-      when the naive approach costs you more as the whole system grows, not just as the changes do.</p>
+      <p style="color:var(--muted); font-size:0.95rem;">This site is a work in progress. A few sections still
+      have gaps I'm filling in, and some of the writing is AI-drafted for now until I get to it.</p>
 
       <ul class="links">
         <li><a href="https://github.com/joshbottelberghe"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a></li>
@@ -59,8 +51,8 @@
 
       <h2>Featured</h2>
       <div class="featured">
-        <a class="card" href="/writing/recompute-avoidance.html">
-          <div class="kicker">Writing · design note</div>
+        <a class="card" href="/projects/recompute-avoidance.html">
+          <div class="kicker">Projects · design note</div>
           <div class="title">Recompute Avoidance: Scaling a Route-Visualization Pipeline ~3x</div>
           <p class="summary">Why a ~3x throughput win came from doing less work, not faster work.</p>
         </a>

@@ -44,7 +44,6 @@
       <nav>
         <a href="/">Home</a>
         <a href="/projects/">Projects</a>
-        <a href="/writing/">Writing</a>
         <a href="/balance.html">Balance</a>
         <a href="/resume.html">Résumé</a>
         <a href="https://github.com/joshbottelberghe">GitHub</a>
@@ -72,8 +71,8 @@
 
         <h2>Summary</h2>
         <p>Networking and distributed-systems engineer, ~4.5 years, mostly Go. I own the route-visualization system
-        at Alkira, a multi-cloud pipeline that turns live routing state off a fleet of nodes into a per-tenant view
-        for 200+ enterprise customers, under a sub-5-minute freshness target, with zero major outages. I rebuilt its
+        at Alkira, a multi-cloud pipeline that turns live routing state off a fleet of nodes into per-region and
+        global route views for 200+ enterprise customers, under a sub-5-minute freshness target, with zero major outages. I rebuilt its
         compute engine so recompute cost tracks the change, not the size of the state, and I built a route dampening
         system that keeps flapping routes from swamping the pipeline; two patents came out of that work. I work across
         the whole routing stack, from BGP/FRR internals and node-level services to observability and CI, I measure
@@ -96,8 +95,8 @@
         </div>
         <p class="org-meta">Multi-cloud network-as-a-service <em>(acquired by Lumen Technologies, 2026)</em> · Remote · Senior Software Engineer 2024 to Present, Software Engineer 2022 to 2024</p>
         <ul>
-          <li>Own the route-visualization pipeline: nodes across AWS, Azure, and GCP export routes to S3; a sharded, leader-elected compute tier reads them, builds the per-tenant view, and caches it in Redis for the customer APIs. 200+ tenants, sub-5-minute freshness, no major outages.</li>
-          <li>Rebuilt the compute engine three times as it scaled: per-tenant threads, then a Redis-backed cache, then segment-level partial compute (recompute only the segment that changed). Cut cache-update time ~74% and CPU ~64%. This work is the basis of one of my two patents.</li>
+          <li>Own the route-visualization pipeline: nodes across AWS, Azure, and GCP export routes to S3; a sharded, leader-elected compute tier reads them, builds per-region and global route views, and caches them in Redis for the customer APIs. 200+ customer networks, sub-5-minute freshness, no major outages.</li>
+          <li>Rebuilt the compute engine three times as it scaled: per-network threads, then a Redis-backed cache, then segment-level partial compute (recompute only the segment that changed). Cut cache-update time ~74% and CPU ~64%. This work is the basis of one of my two patents.</li>
           <li>Wrote a soak-test harness in Go that replays recorded production traffic against two branches and reports the difference in CPU, memory, and latency, so optimization calls are measured, not guessed. It shipped the wins and caught a regression before it merged.</li>
           <li>Cut wasted recomputes with content-hashing, dependency tracking, and a dirty-set that recomputes only the segments a change reaches, removing ~90% of redundant recomputes and the no-op recomputes that were blocking real updates.</li>
           <li>Cut cache memory ~40% with a struct-encoding change; parallelized compute to take multi-minute updates to seconds; tracked down multi-hour S3 stalls (a hung ListObjects, clock skew) and fixed them with timeouts and pagination.</li>
