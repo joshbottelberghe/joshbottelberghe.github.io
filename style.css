@@ -113,6 +113,10 @@ a.card:hover { border-color: var(--accent); text-decoration: none; }
 .card .kicker { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
 .card .title { font-size: 1.08rem; font-weight: 600; margin: 0.25rem 0 0.4rem; color: var(--fg); }
 .card .summary { color: var(--muted); font-size: 0.95rem; margin: 0; }
+.live-dot { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 50%;
+  background: var(--muted); margin-right: 0.45rem; vertical-align: middle; }
+.live-dot.online { background: #3fb950; box-shadow: 0 0 0 3px rgba(63,185,80,.18); }
+.live-dot.offline { background: #6b7885; }
 
 /* --- project list --- */
 .projects-list { list-style: none; padding: 0; }

@@ -52,6 +52,12 @@
 
       <h2>Featured</h2>
       <div class="featured">
+        <a class="card" id="live-card" href="https://herring-chatty-acetone.ngrok-free.dev" target="_blank" rel="noopener">
+          <div class="kicker"><span class="live-dot" id="live-dot"></span>Live · <span id="live-state">checking…</span></div>
+          <div class="title">Served right now from my desktop via ngrok-go</div>
+          <p class="summary">A small Go service on my machine, exposed to you through ngrok's SDK — the same
+          client-side agent surface ngrok's Agent team builds. Click to hit my desktop directly (offline when it's powered down).</p>
+        </a>
         <a class="card" href="/projects/recompute-avoidance.html">
           <div class="kicker">Projects · design note</div>
           <div class="title">Recompute Avoidance: Scaling a Route-Visualization Pipeline ~3x</div>
@@ -67,5 +73,20 @@
 
     <footer class="site">© Josh Bottelberghe</footer>
   </div>
+  <script>
+    // Ping the live desktop endpoint; flip the dot to online/offline. Fails
+    // closed (offline) if the machine is down or the request stalls.
+    (function () {
+      var dot = document.getElementById('live-dot'), state = document.getElementById('live-state');
+      var host = document.getElementById('live-card').getAttribute('href');
+      if (host.indexOf('herring-chatty-acetone.ngrok-free.dev') !== -1) { state.textContent = 'offline'; return; }
+      var ctrl = new AbortController();
+      var t = setTimeout(function () { ctrl.abort(); }, 4000);
+      fetch(host + '/health', { signal: ctrl.signal, cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+        .then(function () { clearTimeout(t); dot.className = 'live-dot online'; state.textContent = 'online'; })
+        .catch(function () { dot.className = 'live-dot offline'; state.textContent = 'offline'; });
+    })();
+  </script>
 </body>
 </html>
