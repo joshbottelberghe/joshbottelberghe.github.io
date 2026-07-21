@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live · Josh Bottelberghe</title>
+  <meta name="description" content="A live corner of the site served straight from Josh's desktop through the ngrok-go SDK.">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <span class="brand"><a href="/" style="color:inherit">Josh Bottelberghe</a></span>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/projects/">Projects</a>
+        <a href="/balance.html">Balance</a>
+        <a href="/resume.html">Résumé</a>
+        <a href="/live.html" aria-current="page">Live</a>
+        <a href="https://github.com/joshbottelberghe">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <h1>Live</h1>
+      <p class="tagline">A dynamic corner of this site, served straight from my desktop.</p>
+
+      <p>The rest of this site is static and hosted read-only on GitHub Pages, so it is always up. This
+      page is different: everything in the panel below is generated right now by a small Go program
+      running on my desktop and handed to you through the
+      <a href="https://github.com/ngrok/ngrok-go">ngrok-go</a> SDK — the same client-side agent surface
+      I would build on ngrok's Agent team. My machine dials outbound to ngrok's edge and your request
+      rides back down that one connection. No inbound port, no public IP, nothing exposed.</p>
+
+      <div class="live-panel">
+        <div class="live-head"><span class="live-dot" id="dot"></span><span id="state">connecting…</span></div>
+
+        <div class="live-grid" id="grid" hidden>
+          <div><span class="k">served from</span><code id="host">—</code></div>
+          <div><span class="k">desktop time</span><code id="now">—</code></div>
+          <div><span class="k">uptime</span><code id="uptime">—</code></div>
+          <div><span class="k">requests served</span><code id="reqs">—</code></div>
+          <div><span class="k">your IP, as my desktop saw it</span><code id="ip">—</code></div>
+        </div>
+
+        <div class="live-ping" id="pingrow" hidden>
+          <button id="pingbtn" type="button">Ping my desktop</button>
+          <span id="pingout" class="muted">round-trip: —</span>
+        </div>
+
+        <p class="muted" id="offline" hidden>My desktop is powered down right now, so the live panel is
+        offline. The static site you are reading stays up regardless — that split is the whole point.</p>
+      </div>
+
+      <p class="muted" style="font-size:0.95rem;">Why this way: a static edge for durability, a tunnel
+      for the live stuff. Hosting the whole site through the tunnel would tie it to one machine being on;
+      keeping the canonical site on GitHub Pages and reaching for ngrok only where I want something live
+      is the honest split — and it is exactly the agent-reliability problem (reconnect, degrade
+      gracefully, survive the machine going away) that ngrok's Agent team owns.</p>
+    </main>
+
+    <footer class="site">© Josh Bottelberghe</footer>
+  </div>
+
+  <script>
+    (function () {
+      var NGROK = 'https://herring-chatty-acetone.ngrok-free.dev';
+      var H = { 'ngrok-skip-browser-warning': '1' };
+      var dot = document.getElementById('dot'), state = document.getElementById('state'),
+          grid = document.getElementById('grid'), pingrow = document.getElementById('pingrow'),
+          offline = document.getElementById('offline');
+
+      function online(info) {
+        dot.className = 'live-dot online';
+        state.textContent = 'online — served from my desktop';
+        document.getElementById('host').textContent = info.host;
+        document.getElementById('now').textContent = info.desktop_now;
+        document.getElementById('uptime').textContent = info.uptime;
+        document.getElementById('reqs').textContent = info.requests;
+        document.getElementById('ip').textContent = info.your_ip;
+        grid.hidden = false; pingrow.hidden = false; offline.hidden = true;
+      }
+      function down() {
+        dot.className = 'live-dot offline'; state.textContent = 'offline';
+        grid.hidden = true; pingrow.hidden = true; offline.hidden = false;
+      }
+      function load() {
+        var c = new AbortController(); var t = setTimeout(function () { c.abort(); }, 5000);
+        fetch(NGROK + '/api/info', { headers: H, cache: 'no-store', signal: c.signal })
+          .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+          .then(function (j) { clearTimeout(t); online(j); })
+          .catch(down);
+      }
+      document.getElementById('pingbtn').addEventListener('click', function () {
+        var out = document.getElementById('pingout'); out.textContent = 'pinging…';
+        var t0 = performance.now();
+        fetch(NGROK + '/api/ping', { headers: H, cache: 'no-store' })
+          .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+          .then(function () { out.textContent = 'round-trip: ' + Math.round(performance.now() - t0) + ' ms  (browser → ngrok edge → my desktop → back)'; })
+          .catch(function () { out.textContent = 'ping failed — desktop may be offline'; });
+      });
+
+      load(); setInterval(load, 15000);
+    })();
+  </script>
+</body>
+</html>

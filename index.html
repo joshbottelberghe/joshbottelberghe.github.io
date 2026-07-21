@@ -16,6 +16,7 @@
         <a href="/projects/">Projects</a>
         <a href="/balance.html">Balance</a>
         <a href="/resume.html">Résumé</a>
+        <a href="/live.html">Live</a>
         <a href="https://github.com/joshbottelberghe">GitHub</a>
       </nav>
     </header>
@@ -52,11 +53,11 @@
 
       <h2>Featured</h2>
       <div class="featured">
-        <a class="card" id="live-card" href="https://herring-chatty-acetone.ngrok-free.dev" target="_blank" rel="noopener">
+        <a class="card" id="live-card" href="/live.html">
           <div class="kicker"><span class="live-dot" id="live-dot"></span>Live · <span id="live-state">checking…</span></div>
           <div class="title">Served right now from my desktop via ngrok-go</div>
-          <p class="summary">A small Go service on my machine, exposed to you through ngrok's SDK — the same
-          client-side agent surface ngrok's Agent team builds. Click to hit my desktop directly (offline when it's powered down).</p>
+          <p class="summary">A small Go service on my machine, exposed through ngrok's SDK — the same
+          client-side agent surface ngrok's Agent team builds. Open the live panel →</p>
         </a>
         <a class="card" href="/projects/recompute-avoidance.html">
           <div class="kicker">Projects · design note</div>
@@ -78,11 +79,10 @@
     // closed (offline) if the machine is down or the request stalls.
     (function () {
       var dot = document.getElementById('live-dot'), state = document.getElementById('live-state');
-      var host = document.getElementById('live-card').getAttribute('href');
-      if (host.indexOf('herring-chatty-acetone.ngrok-free.dev') !== -1) { state.textContent = 'offline'; return; }
       var ctrl = new AbortController();
       var t = setTimeout(function () { ctrl.abort(); }, 4000);
-      fetch(host + '/health', { signal: ctrl.signal, cache: 'no-store' })
+      fetch('https://herring-chatty-acetone.ngrok-free.dev/health',
+            { headers: { 'ngrok-skip-browser-warning': '1' }, signal: ctrl.signal, cache: 'no-store' })
         .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
         .then(function () { clearTimeout(t); dot.className = 'live-dot online'; state.textContent = 'online'; })
         .catch(function () { dot.className = 'live-dot offline'; state.textContent = 'offline'; });
