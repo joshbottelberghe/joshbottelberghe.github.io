@@ -21,17 +21,18 @@
       </nav>
     </header>
 
-    <main>
+    <main class="doc">
       <h1>Live</h1>
-      <p class="tagline">A dynamic corner of this site, served straight from my desktop.</p>
+      <p class="tagline">A dynamic endpoint served from my desktop — not from GitHub Pages.</p>
 
-      <p>The rest of this site is static and hosted read-only on GitHub Pages, so it is always up. This
-      page is different: everything in the panel below is generated right now by a small Go program
-      running on my desktop and handed to you through the
-      <a href="https://github.com/ngrok/ngrok-go">ngrok-go</a> SDK — the same client-side agent surface
-      I would build on ngrok's Agent team. My machine dials outbound to ngrok's edge and your request
-      rides back down that one connection. No inbound port, no public IP, nothing exposed.</p>
+      <p>The panel below is populated by a small Go service on my machine, exposed over an
+      <a href="https://github.com/ngrok/ngrok-go">ngrok</a> tunnel. The machine dials outbound to ngrok's
+      edge; requests ride back down that connection. No inbound port, no public IP.</p>
 
+      <pre class="flow">browser ──▶ ngrok edge ──▶ my desktop ──▶ Go service
+            (the machine dials out; panel goes offline when it's off)</pre>
+
+      <h2>Live node</h2>
       <div class="live-panel">
         <div class="live-head"><span class="live-dot" id="dot"></span><span id="state">connecting…</span></div>
 
@@ -40,7 +41,7 @@
           <div><span class="k">desktop time</span><code id="now">—</code></div>
           <div><span class="k">uptime</span><code id="uptime">—</code></div>
           <div><span class="k">requests served</span><code id="reqs">—</code></div>
-          <div><span class="k">your IP, as my desktop saw it</span><code id="ip">—</code></div>
+          <div><span class="k">your IP, as seen by the desktop</span><code id="ip">—</code></div>
         </div>
 
         <div class="live-ping" id="pingrow" hidden>
@@ -48,15 +49,16 @@
           <span id="pingout" class="muted">round-trip: —</span>
         </div>
 
-        <p class="muted" id="offline" hidden>My desktop is powered down right now, so the live panel is
-        offline. The static site you are reading stays up regardless — that split is the whole point.</p>
+        <p class="muted" id="offline" hidden>Desktop is powered down; this panel is offline. The static
+        site stays up regardless.</p>
       </div>
 
-      <p class="muted" style="font-size:0.95rem;">Why this way: a static edge for durability, a tunnel
-      for the live stuff. Hosting the whole site through the tunnel would tie it to one machine being on;
-      keeping the canonical site on GitHub Pages and reaching for ngrok only where I want something live
-      is the honest split — and it is exactly the agent-reliability problem (reconnect, degrade
-      gracefully, survive the machine going away) that ngrok's Agent team owns.</p>
+      <h2>Endpoints</h2>
+      <table class="doc-table">
+        <tr><td><code>GET /health</code></td><td>liveness + uptime</td></tr>
+        <tr><td><code>GET /api/info</code></td><td>request inspector — what the desktop received</td></tr>
+        <tr><td><code>GET /api/ping</code></td><td>round-trip latency probe</td></tr>
+      </table>
     </main>
 
     <footer class="site">© Josh Bottelberghe</footer>

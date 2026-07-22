@@ -131,6 +131,17 @@ a.card:hover { border-color: var(--accent); text-decoration: none; }
   border-radius: 7px; padding: 0.45rem 0.9rem; font: inherit; font-size: 0.95rem; cursor: pointer; }
 .live-ping button:hover { border-color: var(--accent); }
 
+/* --- lightweight technical-doc styling (/live.html) --- */
+.doc h2 { font-size: 1rem; margin: 1.7rem 0 0.5rem; color: var(--fg); letter-spacing: 0.02em; }
+.doc .flow { background: #0b0f14; border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+  border-radius: 8px; padding: 0.85rem 1rem; margin: 1rem 0; font-size: 0.8rem; line-height: 1.6;
+  color: var(--muted); overflow-x: auto; }
+.doc-table { border-collapse: collapse; width: 100%; margin: 0.4rem 0 1rem; font-size: 0.95rem; }
+.doc-table td { border-bottom: 1px solid var(--rule); padding: 0.4rem 0.8rem 0.4rem 0; vertical-align: top; }
+.doc-table td:first-child { white-space: nowrap; }
+.doc-table code { background: #0b0f14; border: 1px solid var(--rule); border-radius: 5px;
+  padding: 0.05rem 0.35rem; font-size: 0.9em; color: var(--fg); }
+
 /* --- project list --- */
 .projects-list { list-style: none; padding: 0; }
 .projects-list li { padding: 1.2rem 0; border-bottom: 1px solid var(--rule); }
