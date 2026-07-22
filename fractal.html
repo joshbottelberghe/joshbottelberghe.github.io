@@ -30,7 +30,8 @@
       <code>(zoom, x, y, iter)</code>. <b>Phase 2</b> (cheap) applies a color <em>palette</em> to those
       cached iterations. Panning back over seen ground is a cache hit — and switching the palette
       <b>recolors from cached iterations with no recompute at all</b>. Expensive base cached once, cheap
-      metadata layer on top: <a href="/projects/recompute-avoidance.html">do less work, not faster work</a>.
+      metadata layer on top: <a href="/projects/recompute-avoidance.html">more meaningful work, not just
+      faster work</a> — spend compute on the base, refuse to redo it for a cheap change.
       Click to zoom, drag to pan, switch palettes to watch the recolor cost nothing.</p>
 
       <div class="fractal-wrap">
