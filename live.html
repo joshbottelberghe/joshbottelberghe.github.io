@@ -33,12 +33,34 @@
             (the machine dials out; goes offline when it's off)</pre>
 
       <h2>Services</h2>
-      <table class="doc-table">
-        <tr><td><b>Live node</b></td><td>request inspector + latency probe (below)</td></tr>
-        <tr><td><b>Emoji board</b></td><td>a click tally + proof-of-work guestbook chain — <a href="/board.html">open the board</a></td></tr>
-      </table>
+      <div class="svc-grid">
+        <a class="svc" href="/board.html">
+          <div class="svc-name">Emoji board</div>
+          <p class="svc-desc">A click tally plus a mini proof-of-work chain — your browser mines a hash, the
+          server verifies and links your stamp.</p>
+          <span class="svc-tag">/wall · sqlite · pow</span>
+        </a>
+        <a class="svc" href="/pool.html">
+          <div class="svc-name">Endpoint pooling</div>
+          <p class="svc-desc">Several agents share one ngrok endpoint; the edge load-balances across them.
+          Watch traffic distribute live and rebalance when one is killed.</p>
+          <span class="svc-tag">HA · /whoami · live viz</span>
+        </a>
+        <a class="svc" href="#livenode">
+          <div class="svc-name">Live node</div>
+          <p class="svc-desc">Request inspector and latency probe — what my desktop received, and the
+          round-trip through ngrok's edge. Shown below.</p>
+          <span class="svc-tag">/api/info · /api/ping</span>
+        </a>
+        <a class="svc" href="https://github.com/joshbottelberghe/agent-mesh">
+          <div class="svc-name">Agent mesh (MCP)</div>
+          <p class="svc-desc">A curated Model Context Protocol node exposed at <code>/mcp</code>, gated per peer
+          with bearer tokens at the gateway. Source on GitHub.</p>
+          <span class="svc-tag">/mcp · per-peer auth</span>
+        </a>
+      </div>
 
-      <h2>Live node</h2>
+      <h2 id="livenode">Live node</h2>
       <div class="live-panel">
         <div class="live-head"><span class="live-dot" id="dot"></span><span id="state">connecting…</span></div>
 

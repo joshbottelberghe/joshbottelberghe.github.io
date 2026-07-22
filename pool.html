@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Endpoint pooling · Josh Bottelberghe</title>
+  <meta name="description" content="Live view of several ngrok agents pooled behind one endpoint, load-balanced by the edge.">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <span class="brand"><a href="/" style="color:inherit">Josh Bottelberghe</a></span>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/projects/">Projects</a>
+        <a href="/about.html">About</a>
+        <a href="/resume.html">Résumé</a>
+        <a href="/live.html">Live services</a>
+        <a href="https://github.com/joshbottelberghe">GitHub</a>
+      </nav>
+    </header>
+
+    <main class="doc">
+      <h1>Endpoint pooling</h1>
+      <p class="tagline">Several agents, one address, balanced by the edge.</p>
+
+      <p>My gateway runs as <b>several identical agents</b> that all dial out and claim the
+      <em>same</em> ngrok endpoint (<code>joshbottelberghe.ngrok.app</code>). ngrok's edge load-balances
+      across them — no load balancer for me to run. This page fires real requests at the endpoint and tags
+      each response with the agent that served it, so you can watch the distribution live.</p>
+
+      <pre class="flow">              ┌─▶ agent A ─┐
+your browser ─▶ ngrok edge ─┼─▶ agent B ─┼─▶ (one of them answers)
+              └─▶ agent C ─┘
+      kill an agent → its share is picked up by the rest, no downtime</pre>
+
+      <div class="pool-controls">
+        <button id="runbtn" onclick="toggleRun()" style="min-width:5rem">⏸ pause</button>
+        <div><label>load</label>
+          <input type="range" id="rate" min="2" max="50" step="2" value="20" oninput="setRate(this.value)">
+          <span id="rateval" style="font-variant-numeric:tabular-nums">20</span>
+          <span class="muted" style="font-size:0.85rem">req/s</span>
+        </div>
+      </div>
+
+      <div id="rows"><p class="muted">connecting…</p></div>
+      <div class="count" id="summary">—</div>
+
+      <p class="muted" style="font-size:0.9rem; margin-top:1rem">Each bar is one live agent. I scale the pool
+      up and down (and kill agents) from my desktop with <code>systemctl</code> — watch a bar drop to zero and
+      the others absorb its load, then come back when it rejoins. It's live only while my desktop is on.</p>
+
+      <p class="muted" id="offline" hidden>Endpoint unreachable — my desktop is probably off. The static site stays up regardless.</p>
+    </main>
+
+    <footer class="site">© Josh Bottelberghe</footer>
+  </div>
+
+  <script>
+  var API = 'https://joshbottelberghe.ngrok.app';
+  var H = { 'ngrok-skip-browser-warning': '1' };
+  var counts = {}, lastSeen = {}, prev = {}, prevT = performance.now();
+  var running = true, rate = 20, lastOK = 0;
+  var rows = document.getElementById('rows'), summary = document.getElementById('summary'),
+      offline = document.getElementById('offline');
+
+  function setRate(v) { rate = +v; document.getElementById('rateval').textContent = v; }
+  function toggleRun() {
+    running = !running;
+    document.getElementById('runbtn').textContent = running ? '⏸ pause' : '▶ run';
+  }
+
+  // Load generator: 10 ticks/sec, each firing rate/10 requests at the pooled endpoint.
+  setInterval(function () {
+    if (!running) return;
+    var per = Math.max(1, Math.round(rate / 10));
+    for (var i = 0; i < per; i++) {
+      fetch(API + '/whoami', { headers: H, cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+        .then(function (j) {
+          counts[j.instance] = (counts[j.instance] || 0) + 1;
+          lastSeen[j.instance] = Date.now();
+          lastOK = Date.now();
+        })
+        .catch(function () {});
+    }
+  }, 100);
+
+  // Draw: compute per-agent req/s from the delta since the last frame.
+  setInterval(function () {
+    var now = performance.now(), dt = (now - prevT) / 1000 || 1; prevT = now;
+    offline.hidden = !(running && Date.now() - lastOK > 3000);
+
+    var ids = Object.keys(counts).sort();
+    var rps = {}, maxr = 0.5, total = 0, live = 0;
+    ids.forEach(function (id) {
+      var d = Math.max(0, counts[id] - (prev[id] || 0)); prev[id] = counts[id];
+      var r = d / dt; rps[id] = r; total += r; if (r > maxr) maxr = r;
+    });
+
+    var html = '';
+    ids.forEach(function (id) {
+      var dead = Date.now() - (lastSeen[id] || 0) > 2500;
+      if (!dead) live++;
+      var r = rps[id] || 0, w = Math.round(100 * r / maxr);
+      html += '<div class="pool-row' + (dead ? ' dead' : '') + '">'
+        + '<span class="id">' + id + '</span>'
+        + '<div class="barwrap"><div class="bar" style="width:' + (dead ? 0 : w) + '%"></div></div>'
+        + '<span class="rps">' + r.toFixed(0) + ' r/s</span></div>';
+    });
+    rows.innerHTML = html || '<p class="muted">connecting…</p>';
+    summary.textContent = live + ' agent' + (live === 1 ? '' : 's') + ' live · ' + total.toFixed(0) + ' req/s total';
+  }, 700);
+  </script>
+  <script src="/beacon.js" defer></script>
+</body>
+</html>

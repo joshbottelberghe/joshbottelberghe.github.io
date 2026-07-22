@@ -192,3 +192,31 @@ a.card:hover { border-color: var(--accent); text-decoration: none; }
 .feed .nm { flex: 1; }
 .feed .nm.anon { color: var(--muted); font-style: italic; }
 .feed .hx { color: var(--muted); font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.75rem; }
+
+/* --- service hub cards (/live.html) --- */
+.svc-grid { display: grid; gap: 1rem; margin: 1.5rem 0; }
+@media (min-width: 620px) { .svc-grid { grid-template-columns: 1fr 1fr; } }
+a.svc { display: block; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px;
+  padding: 1rem 1.2rem; color: inherit; }
+a.svc:hover { border-color: var(--accent); text-decoration: none; }
+.svc .svc-name { font-weight: 600; color: var(--fg); }
+.svc .svc-desc { color: var(--muted); font-size: 0.92rem; margin: 0.3rem 0 0; }
+.svc .svc-tag { color: var(--muted); font-size: 0.78rem; font-family: "JetBrains Mono", ui-monospace, monospace; }
+
+/* --- endpoint pool viz (/pool.html) --- */
+.pool-controls { display: flex; gap: 1.4rem; align-items: center; flex-wrap: wrap; background: var(--panel);
+  border: 1px solid var(--rule); border-radius: 10px; padding: 0.9rem 1.1rem; margin: 1.5rem 0; }
+.pool-controls label { color: var(--muted); font-size: 0.85rem; margin-right: 0.4rem; }
+.pool-controls button { background: #1c2530; color: var(--fg); border: 1px solid var(--rule); border-radius: 7px;
+  padding: 0.4rem 0.9rem; font: inherit; font-size: 0.95rem; cursor: pointer; }
+.pool-controls button:hover { border-color: var(--accent); }
+.pool-controls input[type=range] { vertical-align: middle; }
+.pool-row { display: flex; align-items: center; gap: 0.75rem; margin: 0.45rem 0; }
+.pool-row .id { width: 9.5rem; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.82rem;
+  color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pool-row .barwrap { flex: 1; background: #0b0f14; border: 1px solid var(--rule); border-radius: 6px; height: 22px; overflow: hidden; }
+.pool-row .bar { height: 100%; background: linear-gradient(90deg, #245e8a, var(--accent)); width: 0; transition: width 0.3s ease; }
+.pool-row .rps { width: 5.5rem; text-align: right; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
+.pool-row.dead { opacity: 0.55; }
+.pool-row.dead .bar { background: #6b7885; }
+.pool-row.dead .id { text-decoration: line-through; }
