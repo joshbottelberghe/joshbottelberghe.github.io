@@ -230,3 +230,4 @@ canvas.fractal { display: block; width: 100%; max-width: 768px; height: auto; as
 .stat { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 0.6rem 0.8rem; }
 .stat .v { font-size: 1.3rem; font-variant-numeric: tabular-nums; color: var(--fg); }
 .stat .l { color: var(--muted); font-size: 0.78rem; margin-top: 0.15rem; }
+.pool-controls .pal.sel { border-color: var(--accent); color: var(--fg); }

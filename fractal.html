@@ -25,12 +25,13 @@
       <h1>Fractal cache</h1>
       <p class="tagline">Recompute avoidance you can watch.</p>
 
-      <p>Each 256&times;256 tile of this Mandelbrot view is an <b>expensive</b> escape-time computation
-      on my desktop. The server keeps an <b>LRU cache</b> keyed by <code>(zoom, x, y, iterations)</code>, so
-      a tile is only ever computed once — pan or zoom back over ground you've seen and those tiles are
-      <b>cache hits</b>, not recomputes. Only newly revealed tiles cost anything. It's the same idea behind
-      the route-visualization pipeline I work on: <a href="/projects/recompute-avoidance.html">do less work,
-      not faster work</a>. Click to zoom in; drag to pan.</p>
+      <p><b>Two-phase cache</b>, modeled on the route-visualization pipeline I work on. <b>Phase 1</b>
+      (expensive) computes the escape-time <em>iterations</em> per pixel and caches them by
+      <code>(zoom, x, y, iter)</code>. <b>Phase 2</b> (cheap) applies a color <em>palette</em> to those
+      cached iterations. Panning back over seen ground is a cache hit — and switching the palette
+      <b>recolors from cached iterations with no recompute at all</b>. Expensive base cached once, cheap
+      metadata layer on top: <a href="/projects/recompute-avoidance.html">do less work, not faster work</a>.
+      Click to zoom, drag to pan, switch palettes to watch the recolor cost nothing.</p>
 
       <div class="fractal-wrap">
         <canvas id="cv" class="fractal" width="768" height="768"></canvas>
@@ -47,20 +48,32 @@
         <span class="muted" id="pos" style="font-size:0.85rem"></span>
       </div>
 
+      <div class="pool-controls">
+        <label>palette</label>
+        <button class="pal sel" data-p="ice" onclick="setPalette('ice')">ice</button>
+        <button class="pal" data-p="fire" onclick="setPalette('fire')">fire</button>
+        <button class="pal" data-p="electric" onclick="setPalette('electric')">electric</button>
+        <button class="pal" data-p="gold" onclick="setPalette('gold')">gold</button>
+        <button class="pal" data-p="grayscale" onclick="setPalette('grayscale')">grayscale</button>
+        <span class="muted" style="font-size:0.85rem">switching = phase-2 recolor, no recompute</span>
+      </div>
+
       <div id="viewstat" class="count">—</div>
 
       <h2>Cache — live</h2>
       <div class="stat-grid">
-        <div class="stat"><div class="v" id="s-hit">—</div><div class="l">hit rate</div></div>
-        <div class="stat"><div class="v" id="s-tiles">—</div><div class="l">tiles cached</div></div>
+        <div class="stat"><div class="v" id="s-chit">—</div><div class="l">phase 1 · compute hit</div></div>
+        <div class="stat"><div class="v" id="s-saved">—</div><div class="l">iteration time saved</div></div>
+        <div class="stat"><div class="v" id="s-lhit">—</div><div class="l">phase 2 · color hit</div></div>
         <div class="stat"><div class="v" id="s-mem">—</div><div class="l">cache memory</div></div>
-        <div class="stat"><div class="v" id="s-saved">—</div><div class="l">compute saved</div></div>
       </div>
 
-      <p class="muted" style="font-size:0.9rem">Cold cache computes every tile; as you explore, the hit rate
-      climbs and "compute saved" is the wall-clock time those cache hits would otherwise have cost. The cache
-      is shared across the pooled gateway agents. Clear it to watch a cold start warm up. Live only while my
-      desktop is on.</p>
+      <p class="muted" style="font-size:0.9rem">A freshly-<b>computed</b> tile flashes
+      <span style="color:#6cb6ff">blue</span> (phase 1); a <b>recolored</b> tile flashes
+      <span style="color:#3fb950">green</span> (phase 2 only, from cached iterations). Switch palettes and
+      everything flashes green — no blue — because nothing is recomputed. "Iteration time saved" is the
+      phase-1 work the cache has avoided. Cache is shared across the pooled agents; clear it to watch a cold
+      start warm up. Live only while my desktop is on.</p>
 
       <p class="muted" id="offline" hidden>Endpoint unreachable — my desktop is probably off. The static site stays up regardless.</p>
     </main>
@@ -73,8 +86,13 @@
   var H = { 'ngrok-skip-browser-warning': '1' };
   var VIEW = 3, TS = 256;             // 3x3 grid of 256px tiles
   var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
-  var z = 0, ox = 0, oy = 0, gen = 0;
+  var z = 0, ox = 0, oy = 0, gen = 0, palette = 'ice';
   var offline = document.getElementById('offline');
+  function setPalette(p) {
+    palette = p;
+    [].forEach.call(document.querySelectorAll('.pal'), function (b) { b.classList.toggle('sel', b.dataset.p === p); });
+    render();
+  }
 
   function iterFor(z) { return Math.min(2000, 140 + z * 52); }  // deeper zoom needs more iterations
   function tilesPerAxis() { return Math.pow(2, z); }
@@ -89,16 +107,19 @@
     clampView();
     document.getElementById('pos').textContent = 'zoom ' + z + ' · tile (' + ox + ',' + oy + ') · iter ' + iterFor(z);
     var it = iterFor(z), myGen = ++gen;
-    var tiles = 0, hits = 0, saved = 0, pending = VIEW * VIEW;
+    var tiles = 0, computed = 0, recolored = 0, cached = 0, saved = 0, pending = VIEW * VIEW;
 
     for (var j = 0; j < VIEW; j++) for (var i = 0; i < VIEW; i++) {
       (function (i, j) {
         var tx = ox + i, ty = oy + j;
-        fetch(API + '/tile?z=' + z + '&x=' + tx + '&y=' + ty + '&iter=' + it, { headers: H, cache: 'no-store' })
+        fetch(API + '/tile?z=' + z + '&x=' + tx + '&y=' + ty + '&iter=' + it + '&palette=' + palette, { headers: H, cache: 'no-store' })
           .then(function (r) {
             if (!r.ok) return Promise.reject();
-            var cache = r.headers.get('X-Cache'), ms = parseFloat(r.headers.get('X-Compute-Ms') || '0');
-            tiles++; if (cache === 'HIT') { hits++; saved += ms; }
+            var cache = r.headers.get('X-Cache');
+            tiles++;
+            if (cache === 'MISS') computed++;
+            else if (cache === 'RECOLOR') { recolored++; saved += parseFloat(r.headers.get('X-Saved-Ms') || '0'); }
+            else cached++;   // L2-HIT
             return r.blob().then(function (b) { return { b: b, cache: cache }; });
           })
           .then(function (o) { return createImageBitmap(o.b).then(function (bm) { return { bm: bm, cache: o.cache }; }); })
@@ -106,24 +127,25 @@
             if (myGen !== gen) return;   // a newer render started; drop stale tile
             markOnline();
             ctx.drawImage(o.bm, i * TS, j * TS);
-            if (o.cache === 'MISS') {     // flash freshly-computed tiles
-              ctx.strokeStyle = '#6cb6ff'; ctx.lineWidth = 3;
+            // blue flash = recomputed (phase 1); green = recolored (phase 2 only)
+            var fc = o.cache === 'MISS' ? '#6cb6ff' : (o.cache === 'RECOLOR' ? '#3fb950' : null);
+            if (fc) {
+              ctx.strokeStyle = fc; ctx.lineWidth = 3;
               ctx.strokeRect(i * TS + 1.5, j * TS + 1.5, TS - 3, TS - 3);
               setTimeout(function () { if (myGen === gen) ctx.drawImage(o.bm, i * TS, j * TS); }, 450);
             }
-            if (--pending === 0) doneRender(tiles, hits, saved);
+            if (--pending === 0) doneRender(tiles, computed, recolored, cached, saved);
           })
-          .catch(function () { markOffline(); if (--pending === 0) doneRender(tiles, hits, saved); });
+          .catch(function () { markOffline(); if (--pending === 0) doneRender(tiles, computed, recolored, cached, saved); });
       })(i, j);
     }
   }
 
-  function doneRender(tiles, hits, saved) {
+  function doneRender(tiles, computed, recolored, cached, saved) {
     if (!tiles) return;
-    var pct = Math.round(100 * hits / tiles);
     document.getElementById('viewstat').textContent =
-      'this view: ' + tiles + ' tiles · ' + hits + ' from cache (' + pct + '%) · '
-      + (tiles - hits) + ' computed · ' + saved.toFixed(0) + ' ms saved';
+      'this view: ' + tiles + ' tiles · ' + computed + ' recomputed · ' + recolored + ' recolored · '
+      + cached + ' cached · ' + saved.toFixed(0) + ' ms iteration saved';
   }
 
   function zoom(d) {
@@ -170,10 +192,10 @@
       .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
       .then(function (s) {
         markOnline();
-        document.getElementById('s-hit').textContent = (s.hit_rate * 100).toFixed(0) + '%';
-        document.getElementById('s-tiles').textContent = s.tiles_cached;
-        document.getElementById('s-mem').textContent = fmtBytes(s.bytes_cached);
-        document.getElementById('s-saved').textContent = fmtMs(s.ms_saved);
+        document.getElementById('s-chit').textContent = (s.compute.hit_rate * 100).toFixed(0) + '%';
+        document.getElementById('s-saved').textContent = fmtMs(s.compute.ms_saved);
+        document.getElementById('s-lhit').textContent = (s.color.hit_rate * 100).toFixed(0) + '%';
+        document.getElementById('s-mem').textContent = fmtBytes(s.compute.bytes + s.color.bytes);
       })
       .catch(markOffline);
   }
