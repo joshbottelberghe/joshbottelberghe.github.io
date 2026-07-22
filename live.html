@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Live · Josh Bottelberghe</title>
+  <title>Live services · Josh Bottelberghe</title>
   <meta name="description" content="A live corner of the site served straight from Josh's desktop through the ngrok-go SDK.">
   <link rel="stylesheet" href="/style.css">
 </head>
@@ -16,21 +16,27 @@
         <a href="/projects/">Projects</a>
         <a href="/balance.html">Balance</a>
         <a href="/resume.html">Résumé</a>
-        <a href="/live.html" aria-current="page">Live</a>
+        <a href="/live.html" aria-current="page">Live services</a>
         <a href="https://github.com/joshbottelberghe">GitHub</a>
       </nav>
     </header>
 
     <main class="doc">
-      <h1>Live</h1>
-      <p class="tagline">A dynamic endpoint served from my desktop — not from GitHub Pages.</p>
+      <h1>Live services</h1>
+      <p class="tagline">Small services I run on my desktop and expose through ngrok.</p>
 
-      <p>The panel below is populated by a small Go service on my machine, exposed over an
-      <a href="https://github.com/ngrok/ngrok-go">ngrok</a> tunnel. The machine dials outbound to ngrok's
-      edge; requests ride back down that connection. No inbound port, no public IP.</p>
+      <p>Each dials outbound to <a href="https://github.com/ngrok/ngrok-go">ngrok</a>'s edge, so requests
+      reach my machine with no inbound port and no public IP. They're live while the desktop is on; the
+      static site stays up either way.</p>
 
       <pre class="flow">browser ──▶ ngrok edge ──▶ my desktop ──▶ Go service
-            (the machine dials out; panel goes offline when it's off)</pre>
+            (the machine dials out; goes offline when it's off)</pre>
+
+      <h2>Services</h2>
+      <table class="doc-table">
+        <tr><td><b>Live node</b></td><td>request inspector + latency probe (below)</td></tr>
+        <tr><td><b>Stamp wall</b></td><td>proof-of-work guestbook — a mini chain <span class="muted">· going live shortly</span></td></tr>
+      </table>
 
       <h2>Live node</h2>
       <div class="live-panel">
