@@ -220,3 +220,13 @@ a.svc:hover { border-color: var(--accent); text-decoration: none; }
 .pool-row.dead { opacity: 0.55; }
 .pool-row.dead .bar { background: #6b7885; }
 .pool-row.dead .id { text-decoration: line-through; }
+
+/* --- cache / fractal demo (/fractal.html) --- */
+.fractal-wrap { margin: 1.25rem 0; }
+canvas.fractal { display: block; width: 100%; max-width: 768px; height: auto; aspect-ratio: 1 / 1;
+  background: #0b0f14; border: 1px solid var(--rule); border-radius: 10px; cursor: zoom-in; touch-action: none; }
+.stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; margin: 1.1rem 0; max-width: 768px; }
+@media (min-width: 620px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
+.stat { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 0.6rem 0.8rem; }
+.stat .v { font-size: 1.3rem; font-variant-numeric: tabular-nums; color: var(--fg); }
+.stat .l { color: var(--muted); font-size: 0.78rem; margin-top: 0.15rem; }
