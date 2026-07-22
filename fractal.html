@@ -59,6 +59,14 @@
         <span class="muted" style="font-size:0.85rem">switching = phase-2 recolor, no recompute</span>
       </div>
 
+      <div class="pool-controls">
+        <button onclick="compareColdWarm()">⏱ compare cold vs cached</button>
+        <button id="ovbtn" onclick="toggleOverlay()">cache overlay: on</button>
+        <span class="muted" style="font-size:0.85rem">badges show each tile's cache state</span>
+      </div>
+
+      <div id="compareout" style="margin:0.6rem 0; padding:0.65rem 0.9rem; border:1px solid var(--rule); border-radius:8px; background:var(--panel); min-height:1.2em; color:var(--fg); font-size:0.92rem;">Press <b>compare cold vs cached</b> to watch the cache avoid the recompute.</div>
+
       <div id="viewstat" class="count">—</div>
 
       <h2>Cache — live</h2>
@@ -69,12 +77,14 @@
         <div class="stat"><div class="v" id="s-mem">—</div><div class="l">cache memory</div></div>
       </div>
 
-      <p class="muted" style="font-size:0.9rem">A freshly-<b>computed</b> tile flashes
-      <span style="color:#6cb6ff">blue</span> (phase 1); a <b>recolored</b> tile flashes
-      <span style="color:#3fb950">green</span> (phase 2 only, from cached iterations). Switch palettes and
-      everything flashes green — no blue — because nothing is recomputed. "Iteration time saved" is the
-      phase-1 work the cache has avoided. Cache is shared across the pooled agents; clear it to watch a cold
-      start warm up. Live only while my desktop is on.</p>
+      <p class="muted" style="font-size:0.9rem">The overlay badges each tile with its cache state:
+      <span style="color:#6cb6ff">blue = computed</span> (with the ms it took),
+      <span style="color:#3fb950">green = recolored</span> (phase 2 only), and
+      <span style="color:#8a97a6">grey = served from cache</span> (no work). Pan around, then pan back —
+      the tiles you've seen turn grey: that's the recompute being avoided. Switch palettes and they all go
+      green (recolor, no recompute). <b>Compare cold vs cached</b> renders the view with an empty cache, then
+      again from cache, and shows the compute the cache saved. Shared across the pooled agents; live only
+      while my desktop is on.</p>
 
       <p class="muted" id="offline" hidden>Endpoint unreachable — my desktop is probably off. The static site stays up regardless.</p>
     </main>
@@ -88,6 +98,7 @@
   var VIEW = 3, TS = 256;             // 3x3 grid of 256px tiles
   var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
   var z = 0, ox = 0, oy = 0, gen = 0, palette = 'ice';
+  var overlay = true, lastTiles = [];
   var offline = document.getElementById('offline');
   function setPalette(p) {
     palette = p;
@@ -107,46 +118,82 @@
   function render() {
     clampView();
     document.getElementById('pos').textContent = 'zoom ' + z + ' · tile (' + ox + ',' + oy + ') · iter ' + iterFor(z);
-    var it = iterFor(z), myGen = ++gen;
-    var tiles = 0, computed = 0, recolored = 0, cached = 0, saved = 0, pending = VIEW * VIEW;
-
-    for (var j = 0; j < VIEW; j++) for (var i = 0; i < VIEW; i++) {
-      (function (i, j) {
-        var tx = ox + i, ty = oy + j;
-        fetch(API + '/tile?z=' + z + '&x=' + tx + '&y=' + ty + '&iter=' + it + '&palette=' + palette, { headers: H, cache: 'no-store' })
-          .then(function (r) {
-            if (!r.ok) return Promise.reject();
-            var cache = r.headers.get('X-Cache');
-            tiles++;
-            if (cache === 'MISS') computed++;
-            else if (cache === 'RECOLOR') { recolored++; saved += parseFloat(r.headers.get('X-Saved-Ms') || '0'); }
-            else cached++;   // L2-HIT
-            return r.blob().then(function (b) { return { b: b, cache: cache }; });
-          })
-          .then(function (o) { return createImageBitmap(o.b).then(function (bm) { return { bm: bm, cache: o.cache }; }); })
-          .then(function (o) {
-            if (myGen !== gen) return;   // a newer render started; drop stale tile
-            markOnline();
-            ctx.drawImage(o.bm, i * TS, j * TS);
-            // blue flash = recomputed (phase 1); green = recolored (phase 2 only)
-            var fc = o.cache === 'MISS' ? '#6cb6ff' : (o.cache === 'RECOLOR' ? '#3fb950' : null);
-            if (fc) {
-              ctx.strokeStyle = fc; ctx.lineWidth = 3;
-              ctx.strokeRect(i * TS + 1.5, j * TS + 1.5, TS - 3, TS - 3);
-              setTimeout(function () { if (myGen === gen) ctx.drawImage(o.bm, i * TS, j * TS); }, 450);
-            }
-            if (--pending === 0) doneRender(tiles, computed, recolored, cached, saved);
-          })
-          .catch(function () { markOffline(); if (--pending === 0) doneRender(tiles, computed, recolored, cached, saved); });
-      })(i, j);
-    }
+    var it = iterFor(z), myGen = ++gen, t0 = performance.now();
+    var acc = { tiles: 0, computed: 0, recolored: 0, cached: 0, computeMs: 0 };
+    var pending = VIEW * VIEW;
+    lastTiles = [];
+    return new Promise(function (resolve) {
+      for (var j = 0; j < VIEW; j++) for (var i = 0; i < VIEW; i++) {
+        (function (i, j) {
+          var tx = ox + i, ty = oy + j;
+          fetch(API + '/tile?z=' + z + '&x=' + tx + '&y=' + ty + '&iter=' + it + '&palette=' + palette, { headers: H, cache: 'no-store' })
+            .then(function (r) {
+              if (!r.ok) return Promise.reject();
+              var cache = r.headers.get('X-Cache');
+              var cms = parseFloat(r.headers.get('X-Compute-Ms') || '0');
+              acc.tiles++;
+              if (cache === 'MISS') { acc.computed++; acc.computeMs += cms; }
+              else if (cache === 'RECOLOR') acc.recolored++;
+              else acc.cached++;   // L2-HIT
+              return r.blob().then(function (b) { return { b: b, cache: cache, ms: cms }; });
+            })
+            .then(function (o) { return createImageBitmap(o.b).then(function (bm) { return { bm: bm, cache: o.cache, ms: o.ms }; }); })
+            .then(function (o) {
+              if (myGen !== gen) return;   // a newer render started; drop stale tile
+              markOnline();
+              ctx.drawImage(o.bm, i * TS, j * TS);
+              var t = { i: i, j: j, bm: o.bm, cache: o.cache, ms: o.ms };
+              lastTiles.push(t);
+              if (overlay) drawBadge(t);
+              if (--pending === 0) { doneRender(acc, performance.now() - t0); resolve(acc); }
+            })
+            .catch(function () { markOffline(); if (--pending === 0) { doneRender(acc, performance.now() - t0); resolve(acc); } });
+        })(i, j);
+      }
+    });
   }
 
-  function doneRender(tiles, computed, recolored, cached, saved) {
-    if (!tiles) return;
+  // Persistent per-tile badge: blue=computed (with ms), green=recolored, grey=cached.
+  function drawBadge(t) {
+    var x = t.i * TS, y = t.j * TS;
+    var conf = t.cache === 'MISS' ? { c: '#6cb6ff', label: t.ms.toFixed(0) + 'ms' }
+      : t.cache === 'RECOLOR' ? { c: '#3fb950', label: 'recolor' }
+        : { c: '#8a97a6', label: 'cache' };
+    ctx.strokeStyle = conf.c; ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, y + 1, TS - 2, TS - 2);
+    ctx.font = '11px ui-monospace, monospace';
+    var w = ctx.measureText(conf.label).width + 8;
+    ctx.fillStyle = 'rgba(11,15,20,0.82)'; ctx.fillRect(x + 4, y + 4, w, 16);
+    ctx.fillStyle = conf.c; ctx.fillText(conf.label, x + 8, y + 15);
+  }
+
+  function toggleOverlay() {
+    overlay = !overlay;
+    document.getElementById('ovbtn').textContent = 'cache overlay: ' + (overlay ? 'on' : 'off');
+    lastTiles.forEach(function (t) { ctx.drawImage(t.bm, t.i * TS, t.j * TS); if (overlay) drawBadge(t); });
+  }
+
+  function doneRender(acc, wallMs) {
+    if (!acc.tiles) return;
     document.getElementById('viewstat').textContent =
-      'this view: ' + tiles + ' tiles · ' + computed + ' recomputed · ' + recolored + ' recolored · '
-      + cached + ' cached · ' + saved.toFixed(0) + ' ms iteration saved';
+      'render: ' + acc.computed + ' computed · ' + acc.recolored + ' recolored · ' + acc.cached + ' cached · '
+      + acc.computeMs.toFixed(0) + ' ms server compute · ' + wallMs.toFixed(0) + ' ms wall';
+  }
+
+  // The watchable moment: render cold (empty cache) vs cached, show the compute avoided.
+  async function compareColdWarm() {
+    var out = document.getElementById('compareout');
+    out.textContent = 'clearing cache…';
+    try {
+      await fetch(API + '/reset', { method: 'POST', headers: H });
+      out.textContent = 'rendering cold…';
+      var cold = await render();
+      out.textContent = 'rendering from cache…';
+      var warm = await render();
+      out.innerHTML = '<b>cold:</b> ' + cold.computeMs.toFixed(0) + ' ms compute (' + cold.computed
+        + ' tiles) &nbsp;→&nbsp; <b>cached:</b> ' + warm.computeMs.toFixed(0) + ' ms (' + warm.cached
+        + ' from cache) — the cache avoided <b>' + cold.computeMs.toFixed(0) + ' ms</b> of recompute.';
+    } catch (e) { out.textContent = 'compare failed — desktop may be offline'; }
   }
 
   function zoom(d) {
