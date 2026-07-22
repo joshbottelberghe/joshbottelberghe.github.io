@@ -2,7 +2,7 @@
 // ngrok gateway at /collect. The server adds IP + UA + time; the client sends
 // path + referrer only. Fails silently if the collector (desktop) is unreachable.
 (function () {
-  var COLLECT = 'https://herring-chatty-acetone.ngrok-free.dev/collect';
+  var COLLECT = 'https://joshbottelberghe.ngrok.app/collect';
   try {
     fetch(COLLECT, {
       method: 'POST', keepalive: true,

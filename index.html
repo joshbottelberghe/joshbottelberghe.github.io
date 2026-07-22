@@ -74,7 +74,7 @@
       var dot = document.getElementById('live-dot'), state = document.getElementById('live-state');
       var ctrl = new AbortController();
       var t = setTimeout(function () { ctrl.abort(); }, 4000);
-      fetch('https://herring-chatty-acetone.ngrok-free.dev/health',
+      fetch('https://joshbottelberghe.ngrok.app/health',
             { headers: { 'ngrok-skip-browser-warning': '1' }, signal: ctrl.signal, cache: 'no-store' })
         .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
         .then(function () { clearTimeout(t); dot.className = 'live-dot online'; state.textContent = 'online'; })
