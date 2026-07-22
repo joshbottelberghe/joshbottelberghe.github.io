@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Emoji board · Josh Bottelberghe</title>
+  <meta name="description" content="A proof-of-work guestbook served from Josh's desktop through the ngrok gateway.">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <span class="brand"><a href="/" style="color:inherit">Josh Bottelberghe</a></span>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/projects/">Projects</a>
+        <a href="/about.html">About</a>
+        <a href="/resume.html">Résumé</a>
+        <a href="/live.html">Live services</a>
+        <a href="https://github.com/joshbottelberghe">GitHub</a>
+      </nav>
+    </header>
+
+    <main class="doc">
+      <h1>Emoji board</h1>
+      <p class="tagline">A tiny guestbook, served from my desktop.</p>
+
+      <p>This runs on my machine and reaches the internet through the same
+      <a href="https://github.com/ngrok/ngrok-go">ngrok</a> gateway that fronts the rest of my live
+      services — one edge, path-routed to several small Go programs. <b>Board</b> is a plain click
+      tally. <b>Chain</b> is a mini proof-of-work chain: your browser mines a small hash, the server
+      verifies it and links your stamp to the previous one. It's live while the desktop is on.</p>
+
+      <div class="tabs">
+        <button class="tab sel" data-t="board" onclick="tab('board')">Board</button>
+        <button class="tab" data-t="chain" onclick="tab('chain')">Chain</button>
+        <button class="tab" data-t="ngrok" onclick="tab('ngrok')">ngrok</button>
+      </div>
+
+      <section id="board" class="tabc">
+        <p class="sub muted">Click an emoji. Every click counts — that's the whole thing.</p>
+        <div class="board-grid" id="boardgrid"></div>
+        <div class="count" id="boardtotal">connecting…</div>
+      </section>
+
+      <section id="chain" class="tabc" hidden>
+        <p class="sub muted">Pick an emoji, optionally add a name, and sign. Your browser mines the
+        proof of work; the server verifies and appends it.</p>
+        <div class="emos" id="emos"></div>
+        <div class="signrow">
+          <input id="name" maxlength="20" placeholder="name (optional)" pattern="[A-Za-z0-9 _.\-]*">
+          <button id="signbtn" onclick="sign()">Sign</button>
+        </div>
+        <div class="status" id="status"></div>
+        <div class="count" id="chaincount">connecting…</div>
+        <ul class="feed" id="feed"></ul>
+      </section>
+
+      <section id="ngrok" class="tabc" hidden>
+        <p class="sub muted">This board is served from my desktop through an ngrok tunnel. Here is what
+        the edge forwarded, and the round-trip time to my machine.</p>
+        <div class="live-grid" id="nginfo"></div>
+        <div class="live-ping">
+          <button onclick="pingNg()">Ping my desktop</button>
+          <span id="ngping" class="muted">round-trip: —</span>
+        </div>
+      </section>
+
+      <p class="muted" id="offline" hidden style="margin-top:1.5rem">Desktop is powered down; the board
+      is offline. The static site stays up regardless.</p>
+    </main>
+
+    <footer class="site">© Josh Bottelberghe</footer>
+  </div>
+
+  <script>
+  // The board's API is path-routed through my ngrok gateway at /wall. The
+  // skip-browser-warning header suppresses ngrok's free-tier interstitial.
+  var API = 'https://herring-chatty-acetone.ngrok-free.dev/wall';
+  var H = { 'ngrok-skip-browser-warning': '1' };
+  var EMO = ['😀','🚀','🎸','🥁','🏊','🧘','☕','🍳','🎮','📖','🐈','⚡','🔥','🌊','🎯','💡'];
+
+  function wfetch(path, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({}, H, opts.headers || {});
+    return fetch(API + path, opts);
+  }
+  function markOnline() { document.getElementById('offline').hidden = true; }
+  function markOffline() { document.getElementById('offline').hidden = false; }
+
+  function tab(t) {
+    [].forEach.call(document.querySelectorAll('.tab'), function (b) { b.classList.toggle('sel', b.dataset.t === t); });
+    [].forEach.call(document.querySelectorAll('.tabc'), function (s) { s.hidden = (s.id !== t); });
+    if (t === 'board') loadBoard(); else if (t === 'chain') loadChain(); else loadNgrok();
+  }
+
+  /* ---- ngrok tab: request inspector + latency ---- */
+  function loadNgrok() {
+    wfetch('/api/ngrok').then(function (r) { return r.json(); }).then(function (d) {
+      markOnline();
+      var box = document.getElementById('nginfo'); box.innerHTML = '';
+      function row(k, v) {
+        var div = document.createElement('div');
+        var ks = document.createElement('span'); ks.className = 'k'; ks.textContent = k;
+        var vs = document.createElement('code'); vs.textContent = v;
+        div.appendChild(ks); div.appendChild(vs); box.appendChild(div);
+      }
+      row('via ngrok', d.via_ngrok ? 'yes' : 'no (served locally)');
+      row('your IP (as seen)', d.your_ip);
+      row('protocol', d.proto || '—');
+      row('served from', d.served_from);
+      row('server time', d.server_time);
+      var fh = d.forwarded_headers || {}; Object.keys(fh).forEach(function (k) { row(k, fh[k]); });
+    }).catch(markOffline);
+  }
+  function pingNg() {
+    var out = document.getElementById('ngping'); out.textContent = 'pinging…';
+    var t0 = performance.now();
+    wfetch('/api/ping', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+      .then(function () { out.textContent = 'round-trip: ' + Math.round(performance.now() - t0) + ' ms  (browser → ngrok edge → my desktop → back)'; })
+      .catch(function () { out.textContent = 'ping failed — desktop may be offline'; });
+  }
+
+  /* ---- Board tab: click tally ---- */
+  var grid = document.getElementById('boardgrid'), cells = {};
+  EMO.forEach(function (e) {
+    var d = document.createElement('div'); d.className = 'cell';
+    d.innerHTML = '<div class="e">' + e + '</div><div class="c">0</div>';
+    d.onclick = function () { click(e, d); };
+    grid.appendChild(d); cells[e] = d.querySelector('.c');
+  });
+  function click(e, d) {
+    var c = cells[e]; c.textContent = (+c.textContent + 1); // optimistic
+    wfetch('/api/click?emoji=' + encodeURIComponent(e), { method: 'POST' })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+      .then(function (j) { c.textContent = j.n; loadBoard(); }).catch(function () {});
+  }
+  function loadBoard() {
+    wfetch('/api/board').then(function (r) { return r.json(); }).then(function (d) {
+      markOnline();
+      EMO.forEach(function (e) { cells[e].textContent = d.counts[e] || 0; });
+      document.getElementById('boardtotal').textContent = (d.total || 0) + ' total clicks';
+    }).catch(function () { markOffline(); document.getElementById('boardtotal').textContent = 'offline'; });
+  }
+
+  /* ---- Chain tab: proof-of-work stamps ---- */
+  var sel = EMO[1], ebox = document.getElementById('emos');
+  EMO.forEach(function (e) {
+    var b = document.createElement('span'); b.className = 'emo' + (e === sel ? ' sel' : '');
+    b.textContent = e;
+    b.onclick = function () { sel = e; [].forEach.call(ebox.children, function (c) { c.className = 'emo' + (c.textContent === e ? ' sel' : ''); }); };
+    ebox.appendChild(b);
+  });
+  function hex(b) { return [].map.call(new Uint8Array(b), function (x) { return x.toString(16).padStart(2, '0'); }).join(''); }
+  async function sha(s) { return hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))); }
+  function setStatus(s) { document.getElementById('status').textContent = s; }
+  async function sign() {
+    var name = document.getElementById('name').value;
+    if (name && !/^[A-Za-z0-9 _.\-]{0,20}$/.test(name)) { setStatus('name: letters/digits/space/_.- only'); return; }
+    var btn = document.getElementById('signbtn'); btn.disabled = true;
+    try {
+      for (var a = 0; a < 4; a++) {
+        var head = await (await wfetch('/api/head')).json(), pre = '0'.repeat(head.difficulty);
+        setStatus('mining (difficulty ' + head.difficulty + ')…');
+        var nonce = 0, h, t0 = performance.now();
+        do { h = await sha(head.prev + '|' + sel + '|' + name + '|' + nonce); if (h.indexOf(pre) === 0) break; nonce++; } while (true);
+        var res = await wfetch('/api/sign', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emoji: sel, name: name, prev: head.prev, nonce: nonce }) });
+        if (res.status === 409) continue; // stale head, re-mine on latest
+        if (!res.ok) { setStatus('rejected: ' + (await res.text()).trim()); return; }
+        var out = await res.json();
+        setStatus('signed! block ' + out.height + ' · ' + Math.round(performance.now() - t0) + 'ms · ' + out.hash.slice(0, 12) + '…');
+        loadChain(); return;
+      }
+      setStatus('chain busy, try again');
+    } catch (e) { setStatus('offline — desktop may be down'); }
+    finally { btn.disabled = false; }
+  }
+  function loadChain() {
+    wfetch('/api/marks').then(function (r) { return r.json(); }).then(function (d) {
+      markOnline();
+      document.getElementById('chaincount').textContent = d.real + ' stamps · difficulty ' + d.difficulty;
+      var f = document.getElementById('feed'); f.innerHTML = '';
+      d.marks.forEach(function (m) {
+        var li = document.createElement('li');
+        var e = document.createElement('span'); e.className = 'e'; e.textContent = m.emoji;
+        var nm = document.createElement('span'); nm.className = 'nm' + (m.name ? '' : ' anon'); nm.textContent = m.name || 'anon';
+        var hx = document.createElement('span'); hx.className = 'hx'; hx.textContent = (m.hash || '').slice(0, 10);
+        li.appendChild(e); li.appendChild(nm); li.appendChild(hx); f.appendChild(li);
+      });
+    }).catch(function () { markOffline(); document.getElementById('chaincount').textContent = 'offline'; });
+  }
+
+  loadBoard();
+  setInterval(function () {
+    if (!document.getElementById('board').hidden) loadBoard();
+    else if (!document.getElementById('chain').hidden) loadChain();
+  }, 4000);
+  </script>
+  <script src="/beacon.js" defer></script>
+</body>
+</html>
