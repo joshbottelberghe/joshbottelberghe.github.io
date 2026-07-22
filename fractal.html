@@ -76,8 +76,9 @@
       <code>(zoom,x,y,iter,palette)</code>, replicated <span id="rf">2</span>&times;. Each tile's
       <b>border color is the pod that served it</b>, so you can watch each pod own a stable slice of the
       plane. Kill a pod on my desktop (<code>systemctl --user stop render-pod@N</code>) and its tiles fail
-      over to the replica's color with no downtime. Built on a small library I'm writing, <b>cachegrid</b>
-      (a cache-compute struct + a consistent-hash ring), served over ngrok.</p>
+      over to the replica's color with no downtime. Built on a small library I'm writing,
+      <a href="/projects/cachegrid.html"><b>cachegrid</b></a> (a cache-compute struct + a consistent-hash
+      ring — see how it works), served over ngrok.</p>
 
       <h2>Cache — live</h2>
       <div class="stat-grid">

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cachegrid · Josh Bottelberghe</title>
+  <meta name="description" content="cachegrid — a Go library for distributed cache-compute: memoize, shard by consistent hashing, replicate. Built in the open.">
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .ring-wrap { display: grid; grid-template-columns: 1fr; gap: 1rem; margin: 1.25rem 0; }
+    @media (min-width: 680px) { .ring-wrap { grid-template-columns: 320px 1fr; align-items: start; } }
+    svg.ring { width: 100%; max-width: 320px; height: auto; background: #0b0f14; border: 1px solid var(--rule); border-radius: 12px; }
+    .ring-side .row { display: flex; align-items: center; gap: 0.6rem; margin: 0.3rem 0; }
+    .ring-side .lbar { flex: 1; height: 16px; background: #0b0f14; border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; }
+    .ring-side .lbar > div { height: 100%; }
+    .ring-side .id { width: 4.5rem; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.82rem; }
+    .ring-side .n { width: 3rem; text-align: right; font-variant-numeric: tabular-nums; font-size: 0.85rem; color: var(--muted); }
+    .moved { color: var(--accent); font-variant-numeric: tabular-nums; }
+    .devlog li { margin: 0.9rem 0; }
+    .devlog .d { color: var(--muted); font-size: 0.82rem; font-family: "JetBrains Mono", ui-monospace, monospace; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <span class="brand"><a href="/" style="color:inherit">Josh Bottelberghe</a></span>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/projects/">Projects</a>
+        <a href="/about.html">About</a>
+        <a href="/resume.html">Résumé</a>
+        <a href="/live.html">Live services</a>
+        <a href="https://github.com/joshbottelberghe">GitHub</a>
+      </nav>
+    </header>
+
+    <main class="doc">
+      <h1>cachegrid</h1>
+      <p class="tagline">Distributed cache-compute, built in the open.</p>
+
+      <p>A small Go library I'm building: memoize expensive deterministic work, shard it across nodes by
+      consistent hashing, and replicate each shard so it stays available when a node leaves. It came out of
+      the <a href="/fractal.html">fractal cache</a> on the live-services page, where you can see it running
+      for real. This page is the "how it works," and a log of building it. It's early &mdash; a good start,
+      not a 1.0.</p>
+
+      <h2>Two primitives</h2>
+      <table class="doc-table">
+        <tr><td><code>Cache[K,V]</code></td><td>a concurrency-safe LRU that memoizes <code>GetOrCompute(key, fn)</code> and measures the recompute it avoids</td></tr>
+        <tr><td><code>Ring</code></td><td>consistent hashing with a replication factor: a key maps to a stable set of nodes, primary first</td></tr>
+        <tr><td><code>Cluster</code></td><td>routes <code>Get</code> across nodes over a <code>Transport</code>, failing over to a replica when a node is down</td></tr>
+      </table>
+
+      <h2>The ring, live</h2>
+      <p>Consistent hashing places nodes and keys on a circle. A key belongs to the nodes clockwise from its
+      position. Add or remove a node and only the keys near it move &mdash; roughly <code>1/N</code> &mdash;
+      instead of the whole keyspace reshuffling. Each node also sits at several positions (virtual nodes) so
+      the load spreads evenly. Add and drop nodes below and watch the keys reshuffle.</p>
+
+      <div class="pool-controls">
+        <button onclick="addNode()">+ node</button>
+        <button onclick="removeNode()">− node</button>
+        <div><label>replication</label>
+          <input type="range" id="rf" min="1" max="3" step="1" value="2" oninput="setRF(this.value)">
+          <span id="rfval" style="font-variant-numeric:tabular-nums">2</span>&times;
+        </div>
+        <div><label>keys</label>
+          <input type="range" id="keys" min="20" max="240" step="20" value="120" oninput="setKeys(this.value)">
+          <span id="keysval" style="font-variant-numeric:tabular-nums">120</span>
+        </div>
+      </div>
+
+      <div class="ring-wrap">
+        <svg class="ring" id="svg" viewBox="0 0 320 320" aria-label="consistent hash ring"></svg>
+        <div class="ring-side">
+          <div id="loadbars"></div>
+          <p class="muted" style="font-size:0.88rem; margin-top:0.8rem">Last change moved
+            <span class="moved" id="moved">0%</span> of keys. Even hashing keeps each node near
+            <span id="ideal">—</span> keys; the bars show the actual split.</p>
+        </div>
+      </div>
+
+      <h2>See it running</h2>
+      <p>The <a href="/fractal.html">fractal cache</a> is cachegrid in production: each Mandelbrot tile is
+      sharded to a compute pod by this exact ring, replicated, and cached in two phases. Kill a pod and its
+      tiles fail over to the replica with no downtime. This page is the theory; that page is the practice.</p>
+
+      <h2>Dev log</h2>
+      <ul class="devlog">
+        <li><span class="d">2026-07-22</span> — Started the library. <code>Cache[K,V]</code> (the
+          cache-compute struct) and <code>Ring</code> (consistent hashing + replication), extracted from
+          the fractal service. Tested under <code>-race</code>.</li>
+        <li><span class="d">2026-07-22</span> — Added <code>Cluster</code> and a <code>Transport</code>
+          interface: sharded, replicated <code>Get</code> with failover and a circuit breaker. The interface
+          lets the distribution be tested with an in-memory mock, no network.</li>
+        <li><span class="d">next</span> — Weighted nodes, metrics hooks, a runnable example, and a proper
+          license before it goes public. It'll grow over time.</li>
+      </ul>
+
+      <p class="muted" id="offline" hidden></p>
+    </main>
+
+    <footer class="site">© Josh Bottelberghe</footer>
+  </div>
+
+  <script>
+  // FNV-1a -> [0,1). Deterministic, well-spread.
+  function hash01(s) {
+    var h = 2166136261 >>> 0;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return h / 4294967296;
+  }
+
+  var COLORS = ['#6cb6ff', '#3fb950', '#d29922', '#a371f7', '#ff7b72', '#39c5cf'];
+  var VNODES = 12; // virtual nodes per physical node
+  var nodes = ['node-1', 'node-2', 'node-3'];
+  var rf = 2, nKeys = 120;
+  var prevPrimary = {}; // key -> node, to measure churn
+
+  function colorOf(node) { return COLORS[nodes.indexOf(node) % COLORS.length]; }
+
+  // Build the sorted ring of virtual-node positions.
+  function ringPoints() {
+    var pts = [];
+    nodes.forEach(function (node) {
+      for (var v = 0; v < VNODES; v++) pts.push({ pos: hash01(node + '#' + v), node: node });
+    });
+    pts.sort(function (a, b) { return a.pos - b.pos; });
+    return pts;
+  }
+
+  // Replicas for a key: distinct physical nodes clockwise from the key's position.
+  function replicas(pts, kpos) {
+    if (!pts.length) return [];
+    var i = 0;
+    while (i < pts.length && pts[i].pos < kpos) i++;
+    if (i === pts.length) i = 0;
+    var out = [], seen = {};
+    for (var c = 0; c < pts.length && out.length < rf; c++) {
+      var n = pts[(i + c) % pts.length].node;
+      if (!seen[n]) { seen[n] = 1; out.push(n); }
+    }
+    return out;
+  }
+
+  function ang(p) { return p * 2 * Math.PI - Math.PI / 2; } // start at top, clockwise
+  function xy(a, r) { return [160 + r * Math.cos(a), 160 + r * Math.sin(a)]; }
+  function el(tag, attrs) {
+    var e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function draw() {
+    var svg = document.getElementById('svg');
+    svg.innerHTML = '';
+    var pts = ringPoints();
+    svg.appendChild(el('circle', { cx: 160, cy: 160, r: 118, fill: 'none', stroke: '#232c36', 'stroke-width': 2 }));
+
+    // virtual-node ticks
+    pts.forEach(function (p) {
+      var a = ang(p.pos), o = xy(a, 111), i = xy(a, 125);
+      svg.appendChild(el('line', { x1: o[0], y1: o[1], x2: i[0], y2: i[1], stroke: colorOf(p.node), 'stroke-width': 2.5 }));
+    });
+
+    // keys as dots inside the ring, colored by primary; count per node + churn
+    var counts = {}; nodes.forEach(function (n) { counts[n] = 0; });
+    var moved = 0, newPrimary = {};
+    for (var k = 0; k < nKeys; k++) {
+      var key = 'key-' + k, kp = hash01(key), reps = replicas(pts, kp);
+      if (!reps.length) continue;
+      var primary = reps[0];
+      counts[primary] = (counts[primary] || 0) + 1;
+      newPrimary[key] = primary;
+      if (prevPrimary[key] !== undefined && prevPrimary[key] !== primary) moved++;
+      var a = ang(kp), pos = xy(a, 96);
+      svg.appendChild(el('circle', { cx: pos[0], cy: pos[1], r: 3, fill: colorOf(primary), 'fill-opacity': 0.9 }));
+    }
+
+    var churn = Object.keys(prevPrimary).length ? Math.round(100 * moved / nKeys) : 0;
+    prevPrimary = newPrimary;
+    document.getElementById('moved').textContent = churn + '%';
+    document.getElementById('ideal').textContent = Math.round(nKeys / nodes.length);
+
+    // load bars
+    var lb = document.getElementById('loadbars'); lb.innerHTML = '';
+    var max = Math.max(1, Math.max.apply(null, nodes.map(function (n) { return counts[n]; })));
+    nodes.forEach(function (n) {
+      var row = document.createElement('div'); row.className = 'row';
+      row.innerHTML = '<span class="id" style="color:' + colorOf(n) + '">' + n + '</span>'
+        + '<div class="lbar"><div style="width:' + Math.round(100 * counts[n] / max) + '%;background:' + colorOf(n) + '"></div></div>'
+        + '<span class="n">' + counts[n] + '</span>';
+      lb.appendChild(row);
+    });
+  }
+
+  function addNode() { if (nodes.length < COLORS.length) { nodes.push('node-' + (nodes.length + 1)); draw(); } }
+  function removeNode() { if (nodes.length > 1) { nodes.pop(); draw(); } }
+  function setRF(v) { rf = +v; document.getElementById('rfval').textContent = v; prevPrimary = {}; draw(); }
+  function setKeys(v) { nKeys = +v; document.getElementById('keysval').textContent = v; prevPrimary = {}; draw(); }
+
+  draw();
+  </script>
+  <script src="/beacon.js" defer></script>
+</body>
+</html>
