@@ -85,6 +85,12 @@
       sharded to a compute pod by this exact ring, replicated, and cached in two phases. Kill a pod and its
       tiles fail over to the replica with no downtime. This page is the theory; that page is the practice.</p>
 
+      <h2>The live fleet</h2>
+      <p>These are the actual compute pods behind the <a href="/fractal.html">fractal</a> right now &mdash;
+      sharded by the ring above and replicated. Kill one and its shard fails over to a replica. Live only
+      while my desktop is on.</p>
+      <div id="fleet" class="ring-side">connecting…</div>
+
       <h2>Dev log</h2>
       <ul class="devlog">
         <li><span class="d">2026-07-22</span> — Started the library. <code>Cache[K,V]</code> (the
@@ -200,6 +206,36 @@
   function setKeys(v) { nKeys = +v; document.getElementById('keysval').textContent = v; prevPrimary = {}; draw(); }
 
   draw();
+
+  // Live fleet: the real render pods behind the fractal, polled from the gateway.
+  var fleetColors = {};
+  function fleetColor(p) {
+    if (!(p in fleetColors)) fleetColors[p] = COLORS[Object.keys(fleetColors).length % COLORS.length];
+    return fleetColors[p];
+  }
+  function pollFleet() {
+    fetch('https://joshbottelberghe.ngrok.app/render/stats', { headers: { 'ngrok-skip-browser-warning': '1' }, cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+      .then(function (s) {
+        var pods = s.pods || [], el = document.getElementById('fleet');
+        if (!pods.length) { el.textContent = 'no pods'; return; }
+        var max = 1; pods.forEach(function (p) { var t = (p.compute && p.compute.tiles) || 0; if (t > max) max = t; });
+        el.innerHTML = pods.map(function (p) {
+          var name = p.pod || p.addr, comp = p.compute || {}, reqs = (comp.hits || 0) + (comp.misses || 0);
+          var hr = reqs > 0 ? Math.round(100 * (comp.hits || 0) / reqs) + '% hit' : '—';
+          var tiles = comp.tiles || 0, c = p.up ? fleetColor(name) : '#6b7885';
+          return '<div class="row"><span class="id" style="color:' + c + '">' + name + '</span>'
+            + '<div class="lbar"><div style="width:' + Math.round(100 * tiles / max) + '%;background:' + c + '"></div></div>'
+            + '<span style="min-width:8rem;text-align:right;font-size:0.82rem;color:var(--muted)">'
+            + (p.up ? tiles + ' tiles · ' + hr : 'down') + '</span></div>';
+        }).join('') + '<p class="muted" style="font-size:0.85rem;margin-top:0.5rem">replication '
+          + (s.replication || 2) + '× · sharded by consistent hashing</p>';
+      })
+      .catch(function () {
+        document.getElementById('fleet').innerHTML = '<span class="muted">desktop offline — the fleet is live only while my machine is on</span>';
+      });
+  }
+  pollFleet(); setInterval(pollFleet, 2500);
   </script>
   <script src="/beacon.js" defer></script>
 </body>
