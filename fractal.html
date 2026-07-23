@@ -107,7 +107,7 @@
   var VIEW = 3, TS = 256;             // 3x3 grid of 256px tiles
   var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
   var z = 0, ox = 0, oy = 0, gen = 0, palette = 'ice';
-  var overlay = true, lastTiles = [], autoRefresh = true;
+  var overlay = true, lastTiles = [], autoRefresh = true, lastFleetSig = null;
   var offline = document.getElementById('offline');
   function setPalette(p) {
     palette = p;
@@ -265,6 +265,11 @@
         document.getElementById('s-mem').textContent = fmtBytes((comp.bytes || 0) + (col.bytes || 0));
         if (s.replication) document.getElementById('rf').textContent = s.replication;
         renderPodLegend(s.pods || []);
+        // Smart refresh: only re-render when the set of live pods changes (a pod
+        // died or came back), so failover is visible without constant re-fetching.
+        var sig = (s.pods || []).map(function (p) { return (p.pod || p.addr) + ':' + (p.up ? 1 : 0); }).sort().join(',');
+        if (lastFleetSig !== null && sig !== lastFleetSig && autoRefresh && document.visibilityState === 'visible') render();
+        lastFleetSig = sig;
       })
       .catch(markOffline);
   }
@@ -292,7 +297,6 @@
 
   render();
   poll(); setInterval(poll, 1500);
-  setInterval(function () { if (autoRefresh && document.visibilityState === 'visible') render(); }, 3000);
   </script>
   <script src="/beacon.js" defer></script>
 </body>
