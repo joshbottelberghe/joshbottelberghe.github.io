@@ -49,6 +49,7 @@
         <tr><td><code>Cache[K,V]</code></td><td>a concurrency-safe LRU that memoizes <code>GetOrCompute(key, fn)</code> and measures the recompute it avoids</td></tr>
         <tr><td><code>Ring</code></td><td>consistent hashing with a replication factor: a key maps to a stable set of nodes, primary first</td></tr>
         <tr><td><code>Cluster</code></td><td>routes <code>Get</code> across nodes over a <code>Transport</code>, failing over to a replica when a node is down</td></tr>
+        <tr><td><code>CounterSet</code></td><td>a mergeable CRDT tally: each node counts locally and atomically, and replicas converge to an eventually-consistent total</td></tr>
       </table>
 
       <h2>The ring, live</h2>
@@ -99,6 +100,10 @@
         <li><span class="d">2026-07-22</span> — Added <code>Cluster</code> and a <code>Transport</code>
           interface: sharded, replicated <code>Get</code> with failover and a circuit breaker. The interface
           lets the distribution be tested with an in-memory mock, no network.</li>
+        <li><span class="d">2026-07-22</span> — Added a CRDT layer for mutable shared state: a grow-only
+          counter and a keyed <code>CounterSet</code>, merged by anti-entropy. Deterministic compute (the
+          fractal tiles) is eventually consistent for free, but a click tally isn't — so the emoji board now
+          runs on <code>CounterSet</code> and stays consistent across the desktop + Pi with atomic local writes.</li>
         <li><span class="d">next</span> — Weighted nodes, metrics hooks, a runnable example, and a proper
           license before it goes public. It'll grow over time.</li>
       </ul>
