@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Endpoint pooling · Josh Bottelberghe</title>
-  <meta name="description" content="Live view of several ngrok agents pooled behind one endpoint, load-balanced by the edge.">
+  <meta name="description" content="Live view of several ngrok agents pooled behind one endpoint, load-balanced by the edge, each rate-limiting itself.">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -23,25 +23,44 @@
 
     <main class="doc">
       <h1>Endpoint pooling</h1>
-      <p class="tagline">Several agents, one address, balanced by the edge.</p>
+      <p class="tagline">Several agents, one address, balanced by the edge — and each one caps its own load.</p>
 
       <p>My gateway runs as <b>several identical agents</b> that all dial out and claim the
       <em>same</em> ngrok endpoint (<code>joshbottelberghe.ngrok.app</code>). ngrok's edge load-balances
-      across them — no load balancer for me to run. This page <b>samples the pool</b>: it fires real
-      requests over a rolling 5-second window, tags each response with the agent that served it, and reports
-      the live distribution — each agent's share, its rate, and how evenly the edge is spreading the load.</p>
+      across them — no load balancer for me to run. Each agent also <b>rate-limits itself</b>
+      (~600&nbsp;req/min), so the pool's total capacity is that cap times the number of live agents. This page
+      <b>samples the pool</b> over a rolling 5-second window: it fires real requests, tags each response with
+      the agent that served it, and reports the live distribution and — when you push past the cap — how much
+      each agent is shedding as <code>429&nbsp;Too&nbsp;Many&nbsp;Requests</code>.</p>
 
       <pre class="flow">              ┌─▶ agent A ─┐
-your browser ─▶ ngrok edge ─┼─▶ agent B ─┼─▶ (one of them answers)
+your browser ─▶ ngrok edge ─┼─▶ agent B ─┼─▶ (one answers; over its cap → 429)
               └─▶ agent C ─┘
-      kill an agent → its share is picked up by the rest, no downtime</pre>
+      kill an agent → its share is picked up by the rest, no downtime
+      push too hard → each agent caps at ~600 rpm, excess comes back 429</pre>
 
       <div class="pool-controls">
         <button id="runbtn" onclick="toggleRun()" style="min-width:5rem">⏸ pause</button>
         <div><label>load</label>
-          <input type="range" id="rate" min="2" max="50" step="2" value="20" oninput="setRate(this.value)">
+          <input type="range" id="rate" min="2" max="60" step="2" value="20" oninput="setRate(this.value)">
           <span id="rateval" style="font-variant-numeric:tabular-nums">20</span>
           <span class="muted" style="font-size:0.85rem">req/s</span>
+        </div>
+      </div>
+
+      <!-- RPM meter: sent vs the pool's aggregate cap, split allowed/throttled -->
+      <div id="meter" style="margin:1rem 0">
+        <div style="display:flex;justify-content:space-between;font-variant-numeric:tabular-nums;font-size:0.9rem;margin-bottom:0.35rem">
+          <span><b id="sentRpm">0</b> <span class="muted">rpm sent</span></span>
+          <span class="muted">pool cap <b id="capRpm">—</b> rpm</span>
+        </div>
+        <div style="height:1.25rem;border-radius:4px;overflow:hidden;background:#30363d;display:flex">
+          <div id="okbar"  style="height:100%;width:0%;background:#3fb950;transition:width .3s"></div>
+          <div id="thrbar" style="height:100%;width:0%;background:#f85149;transition:width .3s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-variant-numeric:tabular-nums;font-size:0.85rem;margin-top:0.35rem">
+          <span style="color:#3fb950"><b id="okRpm">0</b> allowed</span>
+          <span id="thrLabel" style="color:#f85149"><b id="thrRpm">0</b> throttled · <span id="thrPct">0%</span></span>
         </div>
       </div>
 
@@ -49,9 +68,10 @@ your browser ─▶ ngrok edge ─┼─▶ agent B ─┼─▶ (one of them an
       <div class="count" id="summary">—</div>
 
       <p class="muted" style="font-size:0.9rem; margin-top:1rem">Each bar is one agent's share of the last
-      5 seconds of traffic. I scale the pool up and down (and kill agents) from my desktop with
-      <code>systemctl</code> — kill one and its share falls out of the window while the others pick up the
-      load; balance climbs back toward even as the edge rebalances. Live only while my desktop is on.</p>
+      5&nbsp;seconds of served traffic; the red sliver is what that agent threw back as 429. I scale the pool up
+      and down (and kill agents) from my desktop with <code>systemctl</code>. Under the cap, load spreads evenly
+      and nothing is throttled; drag the slider past ~30&nbsp;req/s and you'll watch each agent hit its own limit
+      and start shedding — the pods stay protected and balanced instead of falling over. Live only while my desktop is on.</p>
 
       <p class="muted" id="offline" hidden>Endpoint unreachable — my desktop is probably off. The static site stays up regardless.</p>
     </main>
@@ -62,27 +82,33 @@ your browser ─▶ ngrok edge ─┼─▶ agent B ─┼─▶ (one of them an
   <script>
   var API = 'https://joshbottelberghe.ngrok.app';
   var H = { 'ngrok-skip-browser-warning': '1' };
-  var WINDOW_MS = 5000;      // rolling sample window
-  var samples = [];          // {id, t} for every response in the window
+  var WINDOW_MS = 5000;             // rolling sample window
+  var CAP_PER_AGENT_RPM = 600;      // each pooled agent's /whoami cap (50/5s) — see gateway WHOAMI_RATE_LIMIT
+  var samples = [];                 // {id, t, throttled} for every response in the window
   var running = true, rate = 20, lastOK = 0;
   var rows = document.getElementById('rows'), summary = document.getElementById('summary'),
       offline = document.getElementById('offline');
+  var $ = function (id) { return document.getElementById(id); };
 
-  function setRate(v) { rate = +v; document.getElementById('rateval').textContent = v; }
+  function setRate(v) { rate = +v; $('rateval').textContent = v; }
   function toggleRun() {
     running = !running;
-    document.getElementById('runbtn').textContent = running ? '⏸ pause' : '▶ run';
+    $('runbtn').textContent = running ? '⏸ pause' : '▶ run';
   }
 
-  // Load generator: 10 ticks/sec, each firing rate/10 requests. Every response is
-  // recorded as a timestamped sample of which agent the edge routed it to.
+  // Load generator: 10 ticks/sec, each firing rate/10 requests. Both 200 and 429
+  // return JSON tagged with the serving agent, so every response is a sample —
+  // recorded with whether that agent throttled it.
   setInterval(function () {
     if (!running) return;
     var per = Math.max(1, Math.round(rate / 10));
     for (var i = 0; i < per; i++) {
       fetch(API + '/whoami', { headers: H, cache: 'no-store' })
-        .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
-        .then(function (j) { samples.push({ id: j.instance, t: Date.now() }); lastOK = Date.now(); })
+        .then(function (r) { var s = r.status; return r.json().then(function (j) { return { s: s, j: j }; }); })
+        .then(function (res) {
+          samples.push({ id: res.j.instance || '?', t: Date.now(), throttled: res.s === 429 || res.j.throttled === true });
+          lastOK = Date.now();
+        })
         .catch(function () {});
     }
   }, 100);
@@ -93,37 +119,57 @@ your browser ─▶ ngrok edge ─┼─▶ agent B ─┼─▶ (one of them an
     return Math.sqrt(a.reduce(function (x, y) { return x + (y - m) * (y - m); }, 0) / a.length);
   }
 
-  // Analyze the rolling window: prune old samples, then report the distribution
-  // across the agents that actually served traffic in the last WINDOW_MS.
+  // Analyze the rolling window: prune old samples, then report per-agent load,
+  // the allowed/throttled split, and the pool's request rate in rpm.
   setInterval(function () {
     var now = Date.now(), cut = now - WINDOW_MS;
     while (samples.length && samples[0].t < cut) samples.shift();
     offline.hidden = !(running && now - lastOK > 3000);
 
-    var total = samples.length, counts = {};
-    samples.forEach(function (s) { counts[s.id] = (counts[s.id] || 0) + 1; });
-    var ids = Object.keys(counts).sort();
-    var winSec = WINDOW_MS / 1000;
+    var winSec = WINDOW_MS / 1000, toRPM = 60 / winSec;
+    var total = samples.length, okTotal = 0, thrTotal = 0, pod = {};
+    samples.forEach(function (s) {
+      var p = pod[s.id] || (pod[s.id] = { ok: 0, thr: 0 });
+      if (s.throttled) { thrTotal++; p.thr++; } else { okTotal++; p.ok++; }
+    });
+    var ids = Object.keys(pod).sort(), k = ids.length;
 
+    // RPM meter: sent split into allowed (green) + throttled (red), vs the pool cap.
+    var sentRpm = Math.round(total * toRPM), okRpm = Math.round(okTotal * toRPM), thrRpm = Math.round(thrTotal * toRPM);
+    var capRpm = CAP_PER_AGENT_RPM * (k || 1);
+    var thrPct = total ? Math.round(thrTotal / total * 100) : 0;
+    $('sentRpm').textContent = sentRpm;
+    $('capRpm').textContent = capRpm;
+    $('okRpm').textContent = okRpm;
+    $('thrRpm').textContent = thrRpm;
+    $('thrPct').textContent = thrPct + '%';
+    $('thrLabel').style.visibility = thrTotal ? 'visible' : 'hidden';
+    var denom = Math.max(sentRpm, capRpm, 1);
+    $('okbar').style.width = (okRpm / denom * 100) + '%';
+    $('thrbar').style.width = (thrRpm / denom * 100) + '%';
+
+    // Per-agent rows: bar = share of allowed traffic; red badge = what it's shedding.
     var html = '';
     ids.forEach(function (id) {
-      var c = counts[id], share = total ? c / total : 0;
+      var p = pod[id], share = okTotal ? p.ok / okTotal : 0;
+      var badge = p.thr
+        ? ' <span style="color:#f85149">· ' + (p.thr / winSec).toFixed(0) + ' r/s 429</span>'
+        : '';
       html += '<div class="pool-row">'
         + '<span class="id">' + id + '</span>'
         + '<div class="barwrap"><div class="bar" style="width:' + Math.round(share * 100) + '%"></div></div>'
-        + '<span class="rps">' + (share * 100).toFixed(0) + '% · ' + (c / winSec).toFixed(0) + ' r/s</span></div>';
+        + '<span class="rps">' + (p.ok / winSec).toFixed(0) + ' r/s' + badge + '</span></div>';
     });
     rows.innerHTML = html || '<p class="muted">sampling…</p>';
 
-    // balance = how even the split is vs an ideal 1/k across the k live agents
-    // (1.0 = perfectly even). Reported so you can see the edge converge.
-    var k = ids.length, balance = 0;
-    if (k > 1) {
-      var shares = ids.map(function (id) { return counts[id] / total; });
+    // balance = how even the allowed split is vs an ideal 1/k (1.0 = perfectly even).
+    var balance = 0;
+    if (k > 1 && okTotal) {
+      var shares = ids.map(function (id) { return pod[id].ok / okTotal; });
       balance = Math.max(0, Math.min(1, 1 - stdev(shares) / (1 / k)));
     } else if (k === 1) { balance = 1; }
-    summary.textContent = k + ' agent' + (k === 1 ? '' : 's') + ' · ' + total + ' reqs in ' + winSec + 's · '
-      + (total / winSec).toFixed(0) + ' req/s · balance ' + (balance * 100).toFixed(0) + '%';
+    summary.textContent = k + ' agent' + (k === 1 ? '' : 's') + ' · ' + sentRpm + ' rpm sent · '
+      + okRpm + ' allowed · ' + thrPct + '% throttled · balance ' + (balance * 100).toFixed(0) + '%';
   }, 500);
   </script>
   <script src="/beacon.js" defer></script>
