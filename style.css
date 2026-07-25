@@ -220,6 +220,16 @@ a.svc:hover { border-color: var(--accent); text-decoration: none; }
 .pool-row.dead { opacity: 0.55; }
 .pool-row.dead .bar { background: #6b7885; }
 .pool-row.dead .id { text-decoration: line-through; }
+.pool-row .rps { width: 7.5rem; }
+/* per-agent detail: current cap of declared, and why it was cut */
+.pool-note { margin: -0.2rem 0 0.5rem 10.25rem; color: var(--muted); font-size: 0.82rem;
+  font-variant-numeric: tabular-nums; }
+/* legend swatches */
+.key { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 3px; margin-right: 0.45rem;
+  vertical-align: middle; }
+.key.served { background: var(--accent); }
+.key.thr { background: #f85149; }
+.key.down { background: #6b7885; }
 
 /* --- cache / fractal demo (/fractal.html) --- */
 .fractal-wrap { margin: 1.25rem 0; }

@@ -87,9 +87,8 @@
       tiles fail over to the replica with no downtime. This page is the theory; that page is the practice.</p>
 
       <h2>The live fleet</h2>
-      <p>These are the actual compute pods behind the <a href="/fractal.html">fractal</a> right now &mdash;
-      sharded by the ring above and replicated. Kill one and its shard fails over to a replica. Live only
-      while my desktop is on.</p>
+      <p>The actual compute pods behind the <a href="/fractal.html">fractal</a> right now, sharded by the
+      ring above and replicated. Kill one and its shard fails over to a replica.</p>
       <div id="fleet" class="ring-side">connecting…</div>
 
       <h2>Dev log</h2>
@@ -237,7 +236,7 @@
           + (s.replication || 2) + '× · sharded by consistent hashing</p>';
       })
       .catch(function () {
-        document.getElementById('fleet').innerHTML = '<span class="muted">desktop offline — the fleet is live only while my machine is on</span>';
+        document.getElementById('fleet').innerHTML = '<span class="muted">no node answering — the fleet is offline</span>';
       });
   }
   pollFleet(); setInterval(pollFleet, 2500);

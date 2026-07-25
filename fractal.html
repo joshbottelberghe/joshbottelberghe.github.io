@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fractal cache · Josh Bottelberghe</title>
-  <meta name="description" content="A Mandelbrot tile server with an LRU cache — recompute avoidance you can watch, served from my desktop.">
+  <meta name="description" content="A Mandelbrot tile server with an LRU cache — recompute avoidance you can watch, served from my machines at home.">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -25,14 +25,18 @@
       <h1>Fractal cache</h1>
       <p class="tagline">Recompute avoidance you can watch.</p>
 
-      <p><b>Two-phase cache</b>, modeled on the route-visualization pipeline I work on. <b>Phase 1</b>
-      (expensive) computes the escape-time <em>iterations</em> per pixel and caches them by
-      <code>(zoom, x, y, iter)</code>. <b>Phase 2</b> (cheap) applies a color <em>palette</em> to those
-      cached iterations. Panning back over seen ground is a cache hit — and switching the palette
-      <b>recolors from cached iterations with no recompute at all</b>. Expensive base cached once, cheap
-      metadata layer on top: <a href="/projects/recompute-avoidance.html">more meaningful work, not just
-      faster work</a> — spend compute on the base, refuse to redo it for a cheap change.
-      Click to zoom, drag to pan, switch palettes to watch the recolor cost nothing.</p>
+      <p>A two-phase cache, modeled on the route-visualization pipeline I work on. Click to zoom, drag to
+      pan, switch palettes to watch a recolor cost nothing.</p>
+
+      <table class="doc-table">
+        <tr><td><b>Phase 1</b> · expensive</td>
+            <td>Escape-time <em>iterations</em> per pixel, cached by <code>(zoom, x, y, iter)</code>.</td></tr>
+        <tr><td><b>Phase 2</b> · cheap</td>
+            <td>A color <em>palette</em> over those cached iterations. Changing palette recomputes nothing.</td></tr>
+        <tr><td>why split them</td>
+            <td>Cache the expensive base once, layer the cheap part on top:
+            <a href="/projects/recompute-avoidance.html">meaningful work, not just faster work</a>.</td></tr>
+      </table>
 
       <div class="fractal-wrap">
         <canvas id="cv" class="fractal" width="768" height="768"></canvas>
@@ -73,12 +77,9 @@
       <h2>Compute pods — sharded &amp; replicated</h2>
       <div id="podlegend" class="count" style="display:flex;gap:0.9rem;flex-wrap:wrap;align-items:center">connecting…</div>
       <p class="muted" style="font-size:0.9rem">Tiles are sharded across the pods by a consistent hash of
-      <code>(zoom,x,y,iter,palette)</code>, replicated <span id="rf">2</span>&times;. Each tile's
-      <b>border color is the pod that served it</b>, so you can watch each pod own a stable slice of the
-      plane. Kill a pod on my desktop (<code>systemctl --user stop render-pod@N</code>) and its tiles fail
-      over to the replica's color with no downtime. Built on a small library I'm writing,
-      <a href="/projects/cachegrid.html"><b>cachegrid</b></a> (a cache-compute struct + a consistent-hash
-      ring — see how it works), served over ngrok.</p>
+      <code>(zoom,x,y,iter,palette)</code>, replicated <span id="rf">2</span>&times;, so each pod owns a
+      stable slice of the plane and a killed pod fails over to its replica. Built on
+      <a href="/projects/cachegrid.html">cachegrid</a>.</p>
 
       <h2>Cache — live</h2>
       <div class="stat-grid">
@@ -88,14 +89,18 @@
         <div class="stat"><div class="v" id="s-mem">—</div><div class="l">cache memory</div></div>
       </div>
 
-      <p class="muted" style="font-size:0.9rem">Each tile badge reads <code>pod · state</code>: the border
-      color is the serving pod (above), and the state is <b>Nms</b> = freshly computed, <b>recolor</b> =
-      phase-2 only from cached iterations, or <b>cache</b> = served whole from cache (no work). Pan around,
-      then pan back and tiles turn to <b>cache</b> — that's the recompute being avoided. Switch palettes and
-      they all go <b>recolor</b>. <b>Compare cold vs cached</b> clears every pod's cache, renders cold, then
-      from cache, and shows the compute saved. Stats aggregate across all pods; live only while my desktop is on.</p>
+      <h2>Legend</h2>
+      <p class="muted" style="font-size:0.9rem">Each tile badge reads <code>pod · state</code>. Border color
+      is the serving pod; stats aggregate across all pods.</p>
+      <table class="doc-table">
+        <tr><td><code>42ms</code></td><td>Computed now. Both phases ran.</td></tr>
+        <tr><td><code>recolor</code></td><td>Phase 2 only, from cached iterations. The expensive part was skipped.</td></tr>
+        <tr><td><code>cache</code></td><td>Served whole from cache. No work at all.</td></tr>
+        <tr><td>pan back over seen ground</td><td>Tiles turn <code>cache</code> — the recompute being avoided.</td></tr>
+        <tr><td>switch palette</td><td>Tiles turn <code>recolor</code>, never back to a compute.</td></tr>
+      </table>
 
-      <p class="muted" id="offline" hidden>Endpoint unreachable — my desktop is probably off. The static site stays up regardless.</p>
+      <p class="muted" id="offline" hidden>Endpoint unreachable — every node is down. The static site stays up regardless.</p>
     </main>
 
     <footer class="site">© Josh Bottelberghe</footer>
@@ -211,7 +216,7 @@
       out.innerHTML = '<b>cold:</b> ' + cold.computeMs.toFixed(0) + ' ms compute (' + cold.computed
         + ' tiles) &nbsp;→&nbsp; <b>cached:</b> ' + warm.computeMs.toFixed(0) + ' ms (' + warm.cached
         + ' from cache) — the cache avoided <b>' + cold.computeMs.toFixed(0) + ' ms</b> of recompute.';
-    } catch (e) { out.textContent = 'compare failed — desktop may be offline'; }
+    } catch (e) { out.textContent = 'compare failed — no node answering'; }
   }
 
   function zoom(d) {

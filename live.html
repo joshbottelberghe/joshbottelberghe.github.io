@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Live services · Josh Bottelberghe</title>
-  <meta name="description" content="A live corner of the site served straight from Josh's desktop through the ngrok-go SDK.">
+  <meta name="description" content="A live corner of the site served from Josh's machines at home through the ngrok-go SDK.">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -23,45 +23,44 @@
 
     <main class="doc">
       <h1>Live services</h1>
-      <p class="tagline">Small services I run on my desktop and expose through ngrok.</p>
+      <p class="tagline">Small services I run at home and expose through ngrok.</p>
 
       <p>Each dials outbound to <a href="https://github.com/ngrok/ngrok-go">ngrok</a>'s edge, so requests
-      reach my machine with no inbound port and no public IP. They're live while the desktop is on; the
-      static site stays up either way.</p>
+      reach my machines with no inbound port and no public IP. They run on a desktop and a Raspberry Pi
+      pooled behind one endpoint; the static site stays up either way.</p>
 
-      <pre class="flow">browser ──▶ ngrok edge ──▶ my desktop ──▶ Go service
-            (the machine dials out; goes offline when it's off)</pre>
+      <pre class="flow">browser ──▶ ngrok edge ──┬──▶ desktop ──▶ Go service
+                         └──▶ pi ───────▶ Go service
+            (the machines dial out; the edge picks one per request)</pre>
 
       <h2>Services</h2>
       <div class="svc-grid">
         <a class="svc" href="/fractal.html">
           <div class="svc-name">Fractal cache</div>
-          <p class="svc-desc">A Mandelbrot tile server with an LRU cache — pan and zoom, and watch recompute
-          avoidance live: hit rate, cache memory, and compute time saved.</p>
+          <p class="svc-desc">Mandelbrot tile server on an LRU cache. Pan and zoom against live hit rate and
+          compute saved.</p>
           <span class="svc-tag">/render · lru cache · compute</span>
         </a>
         <a class="svc" href="/board.html">
           <div class="svc-name">Emoji board</div>
-          <p class="svc-desc">A click tally plus a mini proof-of-work chain — your browser mines a hash, the
-          server verifies and links your stamp.</p>
+          <p class="svc-desc">Click tally and a proof-of-work chain. The browser mines a hash, the server
+          verifies and links it.</p>
           <span class="svc-tag">/wall · sqlite · pow</span>
         </a>
         <a class="svc" href="/pool.html">
           <div class="svc-name">Endpoint pooling</div>
-          <p class="svc-desc">Several agents share one ngrok endpoint; the edge load-balances across them.
-          Watch traffic distribute live and rebalance when one is killed.</p>
+          <p class="svc-desc">Several agents on one endpoint, balanced by the edge. Shows which are up and
+          what each is shedding.</p>
           <span class="svc-tag">HA · /whoami · live viz</span>
         </a>
         <a class="svc" href="#livenode">
           <div class="svc-name">Live node</div>
-          <p class="svc-desc">Request inspector and latency probe — what my desktop received, and the
-          round-trip through ngrok's edge. Shown below.</p>
+          <p class="svc-desc">Request inspector and latency probe. Below.</p>
           <span class="svc-tag">/api/info · /api/ping</span>
         </a>
         <a class="svc" href="https://github.com/joshbottelberghe/agent-mesh">
           <div class="svc-name">Agent mesh (MCP)</div>
-          <p class="svc-desc">A curated Model Context Protocol node exposed at <code>/mcp</code>, gated per peer
-          with bearer tokens at the gateway. Source on GitHub.</p>
+          <p class="svc-desc">Curated MCP node at <code>/mcp</code>, gated per peer with bearer tokens.</p>
           <span class="svc-tag">/mcp · per-peer auth</span>
         </a>
       </div>
@@ -71,27 +70,27 @@
         <div class="live-head"><span class="live-dot" id="dot"></span><span id="state">connecting…</span></div>
 
         <div class="live-grid" id="grid" hidden>
-          <div><span class="k">served from</span><code id="host">—</code></div>
-          <div><span class="k">desktop time</span><code id="now">—</code></div>
+          <div><span class="k">served by</span><code id="node">—</code></div>
+          <div><span class="k">node time</span><code id="now">—</code></div>
           <div><span class="k">uptime</span><code id="uptime">—</code></div>
           <div><span class="k">requests served</span><code id="reqs">—</code></div>
-          <div><span class="k">your IP, as seen by the desktop</span><code id="ip">—</code></div>
+          <div><span class="k">your IP, as seen by the node</span><code id="ip">—</code></div>
         </div>
 
         <div class="live-ping" id="pingrow" hidden>
-          <button id="pingbtn" type="button">Ping my desktop</button>
+          <button id="pingbtn" type="button">Ping</button>
           <span id="pingout" class="muted">round-trip: —</span>
         </div>
 
-        <p class="muted" id="offline" hidden>Desktop is powered down; this panel is offline. The static
-        site stays up regardless.</p>
+        <p class="muted" id="offline" hidden>No node is answering; this panel is offline. The static site
+        stays up regardless.</p>
       </div>
 
       <h2>Endpoints</h2>
       <table class="doc-table">
-        <tr><td><code>GET /health</code></td><td>liveness + uptime</td></tr>
-        <tr><td><code>GET /api/info</code></td><td>request inspector — what the desktop received</td></tr>
-        <tr><td><code>GET /api/ping</code></td><td>round-trip latency probe</td></tr>
+        <tr><td><code>GET /health</code></td><td>liveness, node, uptime</td></tr>
+        <tr><td><code>GET /api/info</code></td><td>request inspector — what the node received</td></tr>
+        <tr><td><code>GET /api/ping</code></td><td>round-trip latency probe, names the node that answered</td></tr>
       </table>
     </main>
 
@@ -106,11 +105,13 @@
           grid = document.getElementById('grid'), pingrow = document.getElementById('pingrow'),
           offline = document.getElementById('offline');
 
+      // The endpoint is pooled across more than one machine, so the panel names
+      // whichever node answered rather than assuming the desktop did.
       function online(info) {
         dot.className = 'live-dot online';
-        state.textContent = 'online — served from my desktop';
-        document.getElementById('host').textContent = info.host;
-        document.getElementById('now').textContent = info.desktop_now;
+        state.textContent = 'online — served by ' + info.node;
+        document.getElementById('node').textContent = info.node;
+        document.getElementById('now').textContent = info.node_now;
         document.getElementById('uptime').textContent = info.uptime;
         document.getElementById('reqs').textContent = info.requests;
         document.getElementById('ip').textContent = info.your_ip;
@@ -132,8 +133,8 @@
         var t0 = performance.now();
         fetch(NGROK + '/api/ping', { headers: H, cache: 'no-store' })
           .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
-          .then(function () { out.textContent = 'round-trip: ' + Math.round(performance.now() - t0) + ' ms  (browser → ngrok edge → my desktop → back)'; })
-          .catch(function () { out.textContent = 'ping failed — desktop may be offline'; });
+          .then(function (j) { out.textContent = 'round-trip: ' + Math.round(performance.now() - t0) + ' ms  (browser → ngrok edge → ' + j.node + ' → back)'; })
+          .catch(function () { out.textContent = 'ping failed — no node answering'; });
       });
 
       load(); setInterval(load, 15000);

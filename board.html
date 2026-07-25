@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Emoji board · Josh Bottelberghe</title>
-  <meta name="description" content="A proof-of-work guestbook served from Josh's desktop through the ngrok gateway.">
+  <meta name="description" content="A proof-of-work guestbook served from Josh's machines at home through the ngrok gateway.">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -23,13 +23,11 @@
 
     <main class="doc">
       <h1>Emoji board</h1>
-      <p class="tagline">A tiny guestbook, served from my desktop.</p>
+      <p class="tagline">A tiny guestbook, served from home.</p>
 
-      <p>This runs on my machine and reaches the internet through the same
-      <a href="https://github.com/ngrok/ngrok-go">ngrok</a> gateway that fronts the rest of my live
-      services — one edge, path-routed to several small Go programs. <b>Board</b> is a plain click
-      tally. <b>Chain</b> is a mini proof-of-work chain: your browser mines a small hash, the server
-      verifies it and links your stamp to the previous one. It's live while the desktop is on.</p>
+      <p>Runs behind the same <a href="https://github.com/ngrok/ngrok-go">ngrok</a> gateway as the rest of
+      my live services — one edge, path-routed to several small Go programs. <b>Board</b> is a click
+      tally; <b>Chain</b> is a proof-of-work chain.</p>
 
       <div class="tabs">
         <button class="tab sel" data-t="board" onclick="tab('board')">Board</button>
@@ -38,7 +36,7 @@
       </div>
 
       <section id="board" class="tabc">
-        <p class="sub muted">Click an emoji. Every click counts — that's the whole thing.</p>
+        <p class="sub muted">Click an emoji. Every click counts.</p>
         <div class="board-grid" id="boardgrid"></div>
         <div class="count" id="boardtotal">connecting…</div>
       </section>
@@ -57,17 +55,16 @@
       </section>
 
       <section id="ngrok" class="tabc" hidden>
-        <p class="sub muted">This board is served from my desktop through an ngrok tunnel. Here is what
-        the edge forwarded, and the round-trip time to my machine.</p>
+        <p class="sub muted">What the edge forwarded, and the round-trip to the node that answered.</p>
         <div class="live-grid" id="nginfo"></div>
         <div class="live-ping">
-          <button onclick="pingNg()">Ping my desktop</button>
+          <button onclick="pingNg()">Ping</button>
           <span id="ngping" class="muted">round-trip: —</span>
         </div>
       </section>
 
-      <p class="muted" id="offline" hidden style="margin-top:1.5rem">Desktop is powered down; the board
-      is offline. The static site stays up regardless.</p>
+      <p class="muted" id="offline" hidden style="margin-top:1.5rem">No node is answering; the board is
+      offline. The static site stays up regardless.</p>
     </main>
 
     <footer class="site">© Josh Bottelberghe</footer>
@@ -117,8 +114,8 @@
     var out = document.getElementById('ngping'); out.textContent = 'pinging…';
     var t0 = performance.now();
     wfetch('/api/ping', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : Promise.reject(); })
-      .then(function () { out.textContent = 'round-trip: ' + Math.round(performance.now() - t0) + ' ms  (browser → ngrok edge → my desktop → back)'; })
-      .catch(function () { out.textContent = 'ping failed — desktop may be offline'; });
+      .then(function (j) { out.textContent = 'round-trip: ' + Math.round(performance.now() - t0) + ' ms  (browser → ngrok edge → ' + j.node + ' → back)'; })
+      .catch(function () { out.textContent = 'ping failed — no node answering'; });
   }
 
   /* ---- Board tab: click tally ---- */
@@ -173,7 +170,7 @@
         loadChain(); return;
       }
       setStatus('chain busy, try again');
-    } catch (e) { setStatus('offline — desktop may be down'); }
+    } catch (e) { setStatus('offline — no node answering'); }
     finally { btn.disabled = false; }
   }
   function loadChain() {
