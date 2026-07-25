@@ -73,9 +73,15 @@ your browser ─▶ ngrok edge ─┼─▶ endeavour-2 ─┼─▶ one answers
         <tr><td><span class="key down"></span> down</td>
             <td>Known to the pool, not answering. Its capacity is out of the total; the remaining agents
             carry the traffic.</td></tr>
-        <tr><td><code>96 / 180 rpm</code></td>
-            <td>Accepting 96 requests per minute of a declared 180. Below its declared number means the
-            agent has cut its own intake; the reason is printed beside it.</td></tr>
+        <tr><td><code>480 / 480 rpm</code></td>
+            <td>Accepting 480 requests per minute of a declared 480 — no cut. The Pi declares less than
+            the desktops, so it is the first to shed as load climbs.</td></tr>
+        <tr><td><code>310 / 480 rpm</code></td>
+            <td>The agent has cut its own intake. It does that when its machine gets busy, not when
+            request volume is high, so the cause is printed next to it.</td></tr>
+        <tr><td><code>load 41% of budget</code></td>
+            <td>How close the machine is to the point where it starts shedding. Each node reserves
+            headroom; the Pi reserves more, because it also runs the house DNS.</td></tr>
       </table>
 
       <h2>Endpoints</h2>
@@ -191,10 +197,14 @@ your browser ─▶ ngrok edge ─┼─▶ endeavour-2 ─┼─▶ one answers
         right = (p.ok / winSec).toFixed(0) + ' r/s';
         if (p.thr) right += ' <span style="color:#f85149">· ' + (p.thr / winSec).toFixed(0) + ' 429</span>';
         if (m.base_cap_rpm) {
-          note = m.cap_rpm + ' / ' + m.base_cap_rpm + ' rpm';
-          // Only name the cause when the agent has actually cut its intake;
-          // otherwise the number speaks for itself.
-          if (m.cap_rpm < m.base_cap_rpm && m.reason) note += ' · ' + esc(m.reason);
+          var cut = m.cap_rpm < m.base_cap_rpm;
+          note = (cut ? '<b style="color:#d29922">' + m.cap_rpm + '</b>' : m.cap_rpm)
+               + ' / ' + m.base_cap_rpm + ' rpm';
+          // Always show the measurement, not just the verdict. At rest the cap
+          // sits at base and the interesting number is how much headroom is
+          // left; without it the controller looks inert rather than idle.
+          note += ' · load ' + Math.round((m.pressure || 0) * 100) + '% of budget';
+          if (m.reason) note += ' (' + esc(m.reason) + ')';
         }
       }
 
