@@ -13,6 +13,7 @@
       <span class="brand"><a href="/" style="color:inherit">Josh Bottelberghe</a></span>
       <nav>
         <a href="/">Home</a>
+        <a href="/work/">Work</a>
         <a href="/projects/">Projects</a>
         <a href="/about.html">About</a>
         <a href="/resume.html">Résumé</a>
@@ -34,8 +35,8 @@
       <strong>route-visualization pipeline</strong>, the system that takes the live routing state off a
       fleet of network nodes and turns it into something a customer can actually look at and reason
       about: which prefixes are reachable, via which path, and why. At scale that means hundreds of
-      tenants, tens of thousands of routes each, and a freshness target measured in single-digit
-      minutes. The interesting work wasn't the visualization. It was keeping the pipeline that
+      tenants, tens of thousands of routes each, and a freshness target measured
+      in single-digit minutes. The interesting work wasn't the visualization. It was keeping the pipeline that
       <em>feeds</em> it from falling over as the customer base grew.</p>
 
       <p>This is the story of a roughly <strong>3x throughput improvement</strong>, and why the win came
@@ -64,22 +65,30 @@
 
       <h2>The reframe: avoid the recompute</h2>
 
-      <p>The lever that actually mattered was changing <em>when</em> compute happens at all. Three pieces,
-      each a variation on the same idea: spend work in proportion to the <em>change</em>, not the
-      <em>size of the world</em>.</p>
+      <p>The lever that actually mattered was changing <em>when</em> compute happens at all. Spend work in
+      proportion to the <em>change</em>, not the <em>size of the world</em>. Two of the pieces below attack
+      different halves of that and <strong>compound</strong>: one cuts how much work an update costs, the
+      other cuts how many updates arrive to be worked on. Their effect multiplies rather than adds, which
+      is why the combination moved the curve when either alone would not have.</p>
 
-      <p><strong>1. Segment-level cache compute.</strong> Instead of treating a tenant's model as one
-      monolithic artifact, partition it along a natural boundary in the domain (here, routing segments).
-      A change touches one segment; only that segment's slice of the model gets recomputed and rewritten.
-      The blast radius of an update drops from "the whole tenant" to "the part that moved." This is the
-      single biggest win, and it's almost entirely a <em>data-modeling</em> decision, not a performance
-      hack.</p>
+      <p><strong>1. Segment-level cache compute, less work per update.</strong> Instead of treating a
+      tenant's model as one monolithic artifact, partition it along a natural boundary in the domain
+      (here, routing segments). A change touches one segment; only that segment's slice of the model gets
+      recomputed and rewritten. The blast radius of an update drops from "the whole tenant" to "the part
+      that moved." This is almost entirely a <em>data-modeling</em> decision, not a performance hack.</p>
 
-      <p><strong>2. Route hinting.</strong> The pipeline doesn't have to rediscover what changed by
-      diffing large states; the layer producing the routes already knows. Carry that signal forward as a
-      hint, so the compute layer can skip straight to the affected work instead of scanning to find it.
-      Cheap to produce, expensive to live without: it's the difference between "tell me what changed" and
-      "figure out what changed."</p>
+      <p><strong>2. Route hinting, fewer updates.</strong> The pipeline doesn't have to rediscover what
+      changed by diffing large states; the layer producing the routes already knows. Carry that signal
+      forward as a hint, so the producing side can suppress exports that carry no semantic change and the
+      compute layer can skip straight to the affected work instead of scanning to find it. Cheap to
+      produce, expensive to live without: it's the difference between "tell me what changed" and "figure
+      out what changed."</p>
+
+      <p><strong>Why the pair matters more than either half.</strong> Partitioning alone still pays a
+      per-update cost on every update, including the ones that changed nothing meaningful. Hinting alone
+      still recomputes an entire tenant model on each update that does survive. Together the surviving
+      updates are fewer <em>and</em> each one is cheaper, so the two reductions multiply. That is the whole
+      shape of the win.</p>
 
       <p><strong>3. A file-based export worker pool.</strong> Export, serializing the computed model out
       to where it's served, was its own bottleneck and didn't need to share fate with compute. Decoupling
@@ -94,9 +103,10 @@
       while holding the freshness target: hundreds of tenants, no major outages in the domain over the
       period I owned it.</p>
 
-      <p>The part I find most worth repeating is the <strong>diagnostic</strong> one. Much later, when I
-      built a production-replay harness to soak-test changes against real recorded traffic, the data
-      confirmed the original bet: the dominant cost was <em>cold recompute</em>, and the highest-value
+      <p>The part I find most worth repeating is the <strong>diagnostic</strong> one. Much later I built a
+      production-replay harness, so that new functionality gets verified against replayed production
+      scenarios, locally and then again on a dev deployment, before it merges. Run against the existing
+      pipeline, it confirmed the original bet: the dominant cost was <em>cold recompute</em>, and the highest-value
       remaining levers were all forms of recompute <em>avoidance</em> (content hashing to gate redundant
       work, dependency tracking so a change invalidates only what truly depends on it), not faster access
       to the inputs. The first optimization and the measurement years later were the same idea seen
@@ -113,10 +123,16 @@
         profiling one.</li>
         <li><strong>Propagate what the system already knows.</strong> The producer knew what changed;
         making the consumer rediscover it was wasted effort. Hints beat diffs.</li>
-        <li><strong>Measure to confirm the shape, not just the number.</strong> The soak harness mattered
-        less for the throughput figure than for proving the <em>cost was where I thought it was</em>,
-        which is what tells you the next lever is avoidance, not acceleration.</li>
+        <li><strong>Look for reductions that multiply.</strong> Cutting the cost of an update and cutting
+        the number of updates are different levers, and applying both compounds. Stacking two reductions on
+        the same axis rarely does.</li>
+        <li><strong>Verify against replayed production, not synthetic load.</strong> The harness proved the
+        <em>cost was where I thought it was</em>, which is what tells you the next lever is avoidance rather
+        than acceleration. A throughput figure alone would not have.</li>
       </ul>
+
+      <p style="color:var(--muted); font-size:0.95rem;">The companion piece, on the other half of
+      the same load problem, is <a href="/projects/route-dampening.html">dampening</a>.</p>
 
       <p class="tagline" style="margin-top:2rem">Reconstructed 2026. Happy to go deeper on any piece.</p>
     </main>

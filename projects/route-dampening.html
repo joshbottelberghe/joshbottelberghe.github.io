@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dampening: Spending Freshness to Protect an SLA · Josh Bottelberghe</title>
+  <meta name="description" content="Suppressing updates from flapping routes costs the customer something real. Why that trade was worth making, and why the suppression list turned into a diagnostic.">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <span class="brand"><a href="/" style="color:inherit">Josh Bottelberghe</a></span>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/work/">Work</a>
+        <a href="/projects/">Projects</a>
+        <a href="/about.html">About</a>
+        <a href="/resume.html">Résumé</a>
+        <a href="/live.html">Live services</a>
+        <a href="https://github.com/joshbottelberghe">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <p style="margin-bottom:0.5rem"><a href="/work/">← Work</a></p>
+      <h1>Dampening: Spending Freshness to Protect an SLA</h1>
+      <p class="tagline">2026 · systems design, trade-offs</p>
+
+      <blockquote>One of a series of design writeups reconstructed from memory: the structures and
+      trade-offs of systems I built, not internal documentation. Specifics are generalized; the
+      engineering ideas are the point.</blockquote>
+
+      <p>The <a href="/projects/recompute-avoidance.html">recompute-avoidance work</a> made each update
+      cheaper. This is the other half of the same problem, and it is the less comfortable one: some
+      updates are not worth processing at all, and deciding that means deliberately showing the customer
+      something less than the truth.</p>
+
+      <h2>The shape of the problem</h2>
+
+      <p>The pipeline carried a freshness target measured in single-digit minutes. At scale the collector
+      became CPU and memory bound, and the pressure was not evenly distributed. A small proportion of
+      prefixes generated a large share of the load, because they were <strong>flapping</strong>:
+      withdrawn and readvertised over and over, often from a single unstable link or a misbehaving device
+      somewhere in a customer's network.</p>
+
+      <p>Every one of those transitions is a real routing event, and the naive pipeline treats it as one.
+      Each gets ingested, computed, cached, and served. So a handful of unstable prefixes can consume a
+      disproportionate share of the compute budget, and the cost lands on <em>everyone</em>: the freshness
+      target slips for every route and every tenant, including the overwhelming majority that are
+      perfectly stable.</p>
+
+      <p>Making the pipeline faster does not fix this. The work is genuinely being requested. The question
+      is whether all of it is worth doing.</p>
+
+      <h2>The mechanism</h2>
+
+      <p>Dampening borrows the idea from BGP route flap damping: put a penalty on a prefix each time it
+      changes, decay that penalty on a half-life, and once it crosses a threshold, stop propagating updates
+      for that prefix until it settles. Suppressed prefixes stop being recomputed. The churn stops at the
+      edge of the pipeline instead of travelling all the way through it.</p>
+
+      <p>I wrote the algorithm, tuned the penalty and half-life against real traffic analysis rather than
+      guesses, and put the suppression state behind metrics so it was observable in production. The
+      production window was later widened based on what the data actually showed, not on the original
+      estimate.</p>
+
+      <h2>The part worth being honest about</h2>
+
+      <p>This has a cost, the customer sees it, and no amount of further engineering removes it. While a
+      prefix is suppressed, that customer's view of it is stale. In a system whose entire purpose is
+      showing customers their routes, I chose to knowingly not show some of them.</p>
+
+      <p>That is the trade, stated plainly: <strong>unbounded local freshness in exchange for bounded
+      global freshness.</strong> The alternative is worse. Letting churn from a few unstable prefixes eat
+      the budget pushes every other route past the target, which is a larger failure spread across every
+      tenant rather than a smaller one confined to the prefixes that are actually broken.</p>
+
+      <p>What I <em>could</em> control was whether the staleness was <strong>silent</strong>. Silent
+      staleness would not have been acceptable, because a customer looking at a stale route with no
+      indication has been given wrong information. Visible staleness is a different thing entirely. So the
+      suppressed state was made legible and self-healing:</p>
+
+      <ul>
+        <li>Suppressed prefixes stay in the view, <strong>marked as suppressed</strong>, rather than
+        quietly vanishing or silently going stale.</li>
+        <li>An <strong>unsuppress poll</strong> restores them as soon as they stabilize, so recovery does
+        not wait on the next unrelated event.</li>
+        <li>The dampening state <strong>survives restarts</strong>, so a deploy does not reset every
+        penalty to zero and immediately re-enter the churn storm it was protecting against.</li>
+        <li>Suppression is <strong>instrumented</strong>, so it can be watched rather than assumed.</li>
+      </ul>
+
+      <p>It shipped behind a flag and was only enabled by default after that.</p>
+
+      <h2>The part I did not expect</h2>
+
+      <p>The suppression list turned out to be useful on its own.</p>
+
+      <p>A suppressed prefix is, by definition, a prefix that is misbehaving. So the list of what is
+      currently dampened is a direct signal about which parts of a customer's network are unstable, and
+      customers started reading it that way: not as an artifact of our rate limiting, but as a diagnostic
+      pointing at a real problem on their side.</p>
+
+      <p>That does not give back the freshness that was traded away, and it would be revisionist to claim
+      the trade was free. But the machinery built to be honest about the cost turned into something people
+      wanted for its own sake. The throttle became a diagnostic.</p>
+
+      <h2>What I'd pull out of it</h2>
+
+      <ul>
+        <li><strong>Not all requested work is worth doing.</strong> The instinct under load is to process
+        the same queue faster. Sometimes the right move is to decide that part of the queue does not
+        deserve the compute, which is a product decision wearing a performance costume.</li>
+        <li><strong>Protecting the aggregate means failing something specific.</strong> Bounded global
+        freshness is bought with unbounded local staleness. Naming which one you are choosing beats
+        pretending you got both.</li>
+        <li><strong>Where a cost cannot be removed, make it observable and reversible.</strong> Silent
+        degradation is the unacceptable version of this design. Visible degradation, with a defined path
+        back, is a feature.</li>
+        <li><strong>Instability is itself information.</strong> The mechanism that suppresses a bad signal
+        also identifies it, and that identification can be worth more to the user than the suppressed data
+        was.</li>
+      </ul>
+
+      <p class="tagline" style="margin-top:2rem">Reconstructed 2026. Happy to go deeper on any piece.</p>
+    </main>
+
+    <footer class="site">© Josh Bottelberghe</footer>
+  </div>
+  <script src="/beacon.js" defer></script>
+</body>
+</html>

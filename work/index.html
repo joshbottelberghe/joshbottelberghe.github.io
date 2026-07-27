@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Work · Josh Bottelberghe</title>
+  <meta name="description" content="Four years owning a BGP route-visualization system at scale: partial compute, route dampening, traffic observability, Go tooling, and CI across a repo fleet.">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <span class="brand"><a href="/" style="color:inherit">Josh Bottelberghe</a></span>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/work/">Work</a>
+        <a href="/projects/">Projects</a>
+        <a href="/about.html">About</a>
+        <a href="/resume.html">Résumé</a>
+        <a href="/live.html">Live services</a>
+        <a href="https://github.com/joshbottelberghe">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <h1>Work</h1>
+      <p class="tagline">Four years owning a route-visualization system at Alkira, and the work that grew
+      out of it. This lives inside one company, so it is a description of the systems rather than links to
+      code.</p>
+
+      <ul class="projects-list">
+        <li>
+          <div class="title">Route-visualization pipeline <span class="tags">· the system I own</span></div>
+          <p class="summary">It takes the live routing state off a fleet of nodes across three clouds,
+          stores it, computes per-cloud-region and global views of what's reachable and how, including
+          segmentation and metadata routes, and serves that to customer APIs. Hundreds of customer networks,
+          tens of thousands of routes each, a freshness target under five
+          minutes, and no major outages while I've owned it. I've developed three versions of the compute
+          engine as it grew: per-tenant threaded collection, a Redis-backed cache shared across pods, and
+          segment-level partial compute.</p>
+          <div class="repo"><a href="/projects/recompute-avoidance.html">Design note: recompute avoidance</a></div>
+        </li>
+        <li>
+          <div class="title">Partial compute <span class="tags">· route-viz scaling · patent</span></div>
+          <p class="summary">The version I'm most proud of. Instead of recomputing a network's whole view on
+          every change, the engine now does work in proportion to what actually changed. Two reductions that
+          compound: segment-level compute cuts the work an update costs, and node-side route hinting cuts how
+          many updates arrive at all. On a single-segment update that's a 99.6% cache hit and about 768 MB of
+          memory instead of 12 GB, and roughly a 3x scaling improvement overall. It's one of the two patents
+          that came out of my route-viz work. New functionality is verified against replayed production
+          scenarios, locally and then on a dev deployment, before it merges.</p>
+          <div class="repo"><a href="/projects/recompute-avoidance.html">Read how it works</a></div>
+        </li>
+        <li>
+          <div class="title">Route dampening &amp; suppression <span class="tags">· node-side system · patent</span></div>
+          <p class="summary">A system that puts a penalty and a half-life on routes that flap, so churn
+          doesn't overwhelm everything downstream. I wrote the algorithm, tuned the production parameters
+          from real traffic analysis, and added metrics for it. The tradeoff is real and the customer sees
+          it: a suppressed route is stale until it settles, in a system whose whole job is showing customers
+          their routes. It was worth making because a small number of unstable prefixes would otherwise push
+          every other route past the freshness target, and the suppression list turned out to be useful on
+          its own, as a signal to the customer about which of their routes are unstable.</p>
+          <div class="repo"><a href="/projects/route-dampening.html">Design note: spending freshness to protect an SLA</a></div>
+        </li>
+        <li>
+          <div class="title">route-detective <span class="tags">· Go · MCP server · route-intelligence tooling</span></div>
+          <p class="summary">A Go MCP server that makes our historical route archive queryable, including by
+          AI agents. I rewrote it into a single self-contained binary with 18 tools and took it from v1 to
+          v2.1 in about two weeks. The team picked it up for on-call, upgrade checks, and tracking down route
+          churn.</p>
+        </li>
+        <li>
+          <div class="title">CI/CD &amp; security across the fleet <span class="tags">· 18 Go repos</span></div>
+          <p class="summary">I brought consistent CI, dependency and secret scanning, and merge gates to all
+          18 of our routing Go repos, plus a weekly health audit. Along the way I fixed real CVEs, an
+          access-control bug from a security probe, and cleaned a lot of hardcoded credentials out of the
+          fleet. The point was to raise the floor for everyone, not just my own changes.</p>
+        </li>
+        <li>
+          <div class="title">Selector Stats <span class="tags">· traffic observability</span></div>
+          <p class="summary">I picked this up end to end when a teammate went on leave, in a part of the
+          system I hadn't worked in before. I did the design, the API, and the rollout, then root-caused a
+          wrong number down to a bad metric on another team's side and drove the fix through them. Shipped it
+          behind a flag and validated it live on call.</p>
+        </li>
+        <li>
+          <div class="title">Working across teams <span class="tags">· the connective work</span></div>
+          <p class="summary">A lot of my work crosses team lines. Something breaks in one service but starts
+          in another, and I trace it and drive the fix through whoever owns it. Day to day that's working
+          with Product, QA, and the other routing teams to actually get things shipped, and mentoring a
+          junior engineer along the way.</p>
+        </li>
+      </ul>
+
+      <p style="color:var(--muted); font-size:0.95rem;">Two of these have a deeper design note:
+      <a href="/projects/recompute-avoidance.html">recompute avoidance</a> and
+      <a href="/projects/route-dampening.html">dampening</a>. Personal and open-source work is under
+      <a href="/projects/">Projects</a>.</p>
+    </main>
+
+    <footer class="site">© Josh Bottelberghe</footer>
+  </div>
+  <script src="/beacon.js" defer></script>
+</body>
+</html>
