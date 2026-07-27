@@ -59,7 +59,8 @@
           it: a suppressed route is stale until it settles, in a system whose whole job is showing customers
           their routes. It was worth making because a small number of unstable prefixes would otherwise push
           every other route past the freshness target, and the suppression list turned out to be useful on
-          its own, as a signal to the customer about which of their routes are unstable.</p>
+          its own, as a signal about which of a customer's routes are unstable. Later I caught a
+          regression in it and got the revert out the same day it showed up.</p>
           <div class="repo"><a href="/projects/route-dampening.html">Design note: spending freshness to protect an SLA</a></div>
         </li>
         <li>

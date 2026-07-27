@@ -91,16 +91,17 @@
         <li>Suppression is <strong>instrumented</strong>, so it can be watched rather than assumed.</li>
       </ul>
 
-      <p>It shipped behind a flag and was only enabled by default after that.</p>
+      <p>It was rolled out gradually and only enabled by default once the parameters held up in
+      production.</p>
 
       <h2>The part I did not expect</h2>
 
       <p>The suppression list turned out to be useful on its own.</p>
 
       <p>A suppressed prefix is, by definition, a prefix that is misbehaving. So the list of what is
-      currently dampened is a direct signal about which parts of a customer's network are unstable, and
-      customers started reading it that way: not as an artifact of our rate limiting, but as a diagnostic
-      pointing at a real problem on their side.</p>
+      currently dampened is a direct signal about which parts of a network are unstable, and it reads as a
+      diagnostic rather than as an artifact of our rate limiting. Dampened-route analysis became a normal
+      starting point when investigating a customer's routing problems.</p>
 
       <p>That does not give back the freshness that was traded away, and it would be revisionist to claim
       the trade was free. But the machinery built to be honest about the cost turned into something people
