@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Work · Josh Bottelberghe</title>
-  <meta name="description" content="Four years owning a BGP route-visualization system at scale: partial compute, route dampening, traffic observability, Go tooling, and CI across a repo fleet.">
+  <meta name="description" content="Four years on a routing services team: owning a BGP route-visualization system at scale, plus node-side systems, production debugging, Go tooling, and CI across a repo fleet.">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -24,9 +24,13 @@
 
     <main>
       <h1>Work</h1>
-      <p class="tagline">Four years owning a route-visualization system at Alkira, and the work that grew
-      out of it. This lives inside one company, so it is a description of the systems rather than links to
-      code.</p>
+      <p class="tagline">Four years on the routing services team at Alkira. The largest single piece of it is
+      the route-visualization system, which I own end to end; the rest is the routing stack around it. This
+      lives inside one company, so it is a description of the systems rather than links to code.</p>
+
+      <h2>Route visualization</h2>
+      <p style="color:var(--muted); font-size:0.96rem; margin:0 0 0.5rem;">The system I own, and the largest
+      part of what I do.</p>
 
       <ul class="projects-list">
         <li>
@@ -63,12 +67,30 @@
           regression in it and got the revert out the same day it showed up.</p>
           <div class="repo"><a href="/projects/route-dampening.html">Design note: spending freshness to protect an SLA</a></div>
         </li>
+      </ul>
+
+      <h2>Across the routing stack</h2>
+      <p style="color:var(--muted); font-size:0.96rem; margin:0 0 0.5rem;">The other half of the role: work
+      that belongs to the team rather than to my service.</p>
+
+      <ul class="projects-list">
         <li>
-          <div class="title">route-detective <span class="tags">· Go · MCP server · route-intelligence tooling</span></div>
+          <div class="title">Production debugging <span class="tags">· across the routing services</span></div>
+          <p class="summary">Over four years I've closed 50+ production bugs, a lot of them outside my own
+          service and several of them after hours. The ones I'd point at: a multi-minute object-storage hang
+          that turned out to be TCP retransmission against a 15-minute clock-skew tolerance, a fleet-wide
+          cached-credential failure throwing millions of upload errors, and two unrelated nightly failures I
+          cross-correlated to a single dataplane commit to unblock a release. The pattern is the same each
+          time: find where it actually starts, then drive the fix through whoever owns that part.</p>
+        </li>
+        <li>
+          <div class="title">route-detective and team tooling <span class="tags">· Go · MCP server</span></div>
           <p class="summary">A Go MCP server that makes our historical route archive queryable, including by
           AI agents. I rewrote it into a single self-contained binary with 18 tools and took it from v1 to
           v2.1 in about two weeks. The team picked it up for on-call, upgrade checks, and tracking down route
-          churn.</p>
+          churn. It's the flagship of a larger thread: taking the procedures the team already runs by hand,
+          like incident investigation, the weekly on-call audit, and release and dependency checks, and
+          turning them into repeatable evidence-gated workflows that other engineers use.</p>
         </li>
         <li>
           <div class="title">CI/CD &amp; security across the fleet <span class="tags">· 18 Go repos</span></div>
@@ -85,11 +107,13 @@
           behind a flag and validated it live on call.</p>
         </li>
         <li>
-          <div class="title">Working across teams <span class="tags">· the connective work</span></div>
-          <p class="summary">A lot of my work crosses team lines. Something breaks in one service but starts
-          in another, and I trace it and drive the fix through whoever owns it. Day to day that's working
-          with Product, QA, and the other routing teams to actually get things shipped, and mentoring a
-          junior engineer along the way.</p>
+          <div class="title">The domain, and the people in it <span class="tags">· mentoring · review</span></div>
+          <p class="summary">I'm the person the team asks about routes and traffic-statistics data. That
+          means mentoring a junior engineer, writing an 11-lesson networking curriculum and onboarding a peer
+          on it, and reviewing outside my own service, including our fork of FRR, where I argued that state
+          transitions landing in Idle had to stay logged by default rather than be gated behind a debug flag.
+          The rest of it is the ordinary version of the same thing: working with Product, QA, and the other
+          routing teams to get things actually shipped.</p>
         </li>
       </ul>
 

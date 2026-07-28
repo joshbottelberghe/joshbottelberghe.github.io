@@ -43,8 +43,21 @@ def pages_at(page, scale, path):
     return int(re.search(r"Pages:\s+(\d+)", info).group(1))
 
 
+def chromium_shell():
+    """Locate an installed headless-shell binary.
+
+    The system playwright package pins a browser build number that drifts out of
+    sync with whatever `npx playwright install` last fetched, so resolve by glob
+    and take the newest rather than trusting the pin.
+    """
+    root = pathlib.Path.home() / ".cache" / "ms-playwright"
+    found = sorted(root.glob("chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell"),
+                   key=lambda q: int(q.parts[-3].split("-")[-1]))
+    return str(found[-1]) if found else None
+
+
 with sync_playwright() as p:
-    browser = p.chromium.launch()
+    browser = p.chromium.launch(executable_path=chromium_shell())
     page = browser.new_page(viewport={"width": 816, "height": 1056})
     page.set_content(doc, wait_until="networkidle")
 
