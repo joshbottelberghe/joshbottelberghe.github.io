@@ -72,14 +72,15 @@
         </header>
 
         <h2>Summary</h2>
-        <p>Networking and distributed-systems engineer, ~4.5 years, mostly Go, on a routing services team. The largest
-        thing I own is the route-visualization system at Alkira, a multi-cloud pipeline that turns live routing state
+        <p>Networking and distributed-systems engineer, ~4.5 years, mostly Go, on a routing services team. My primary
+        ownership is the route-visualization system at Alkira, a multi-cloud pipeline that turns live routing state
         off a fleet of nodes into per-region and global route views for 200+ enterprise customers, under a
         sub-5-minute freshness target, with zero major outages. I developed three versions of its compute engine so
         recompute cost tracks the change, not the size of the state, and I built a route dampening system that keeps
         flapping routes from swamping the pipeline; two patents came out of that work. The rest of the job runs across
-        the team's stack: BGP/FRR internals and node-level services, production debugging in services I don't own, CI
-        and dependency security across all 18 of our Go repos, and the tooling the rest of the team uses.</p>
+        the team's stack: design work on our other routing services, BGP/FRR internals and node-level
+        services, production debugging across the team's services, CI and dependency security across all 18
+        of our Go repos, and the tooling the rest of the team uses.</p>
 
         <h2>Skills</h2>
         <div class="skills">
@@ -104,7 +105,7 @@
           <li>Cut wasted recomputes with content-hashing, dependency tracking, and a dirty-set that recomputes only the segments a change reaches, removing ~90% of redundant recomputes and the no-op recomputes that were blocking real updates. Profiling-driven allocation fixes took the hot path from ~200 to 0 allocations per operation.</li>
           <li>Cut cache memory ~40% with a struct-encoding change; parallelized compute to take multi-minute updates to seconds; tracked down multi-hour S3 stalls (a hung ListObjects, clock skew) and fixed them with timeouts and pagination.</li>
           <li>Built a route-intelligence tooling server in Go (rewrote it to a single binary, v1 to v2.1 in ~2 weeks) that the team uses for on-call and route history. Standardized CI and dependency security across 18 Go repos, fixing real CVEs and an IDOR along the way.</li>
-          <li>Became the team's production-bug closer: 50+ resolved over four years, many in services I don't own, including a multi-minute object-storage hang traced to TCP retransmission against a 15-minute clock-skew tolerance, and a fleet-wide cached-credential failure behind millions of upload errors.</li>
+          <li>Became the team's production-bug closer: 50+ resolved over four years, many across the team's services, including a multi-minute object-storage hang traced to TCP retransmission against a 15-minute clock-skew tolerance, and a fleet-wide cached-credential failure behind millions of upload errors.</li>
           <li>Root-caused hard BGP/FRR production bugs: nondeterministic route ordering (Go map iteration), a stale export hint, and a live-vs-provisioned read that surfaced un-provisioned state. Contributed review depth to our FRR/Zebra fork, catching a BGP FSM logging-correctness issue that senior reviewers adopted.</li>
           <li>Owned features end-to-end across Product and QA, mentored engineers, wrote an 11-lesson networking curriculum, and became the team's go-to on the domain.</li>
         </ul>
